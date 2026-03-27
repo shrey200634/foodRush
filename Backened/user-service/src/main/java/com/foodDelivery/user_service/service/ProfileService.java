@@ -2,6 +2,7 @@ package com.foodDelivery.user_service.service;
 
 import com.foodDelivery.user_service.domain.Address;
 import com.foodDelivery.user_service.domain.User;
+import com.foodDelivery.user_service.dto.AddressRequest;
 import com.foodDelivery.user_service.repository.AddressRepository;
 import com.foodDelivery.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,10 +35,19 @@ public class ProfileService {
         return addressRepository.findByUserUserId(userId);
     }
 
-    public Address addAddress(String userId, Address address) {
+    public Address addAddress(String userId, AddressRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        address.setUser(user);
+        Address address = Address.builder()
+                .user(user)
+                .label(request.getLabel())
+                .street(request.getStreet())
+                .city(request.getCity())
+                .pincode(request.getPincode())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
+                .isDefault(request.isDefault())
+                .build();
         return addressRepository.save(address);
     }
 

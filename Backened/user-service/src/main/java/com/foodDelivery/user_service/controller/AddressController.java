@@ -1,6 +1,7 @@
 package com.foodDelivery.user_service.controller;
 
 import com.foodDelivery.user_service.domain.Address;
+import com.foodDelivery.user_service.dto.AddressRequest;
 import com.foodDelivery.user_service.service.ProfileService;
 import com.foodDelivery.user_service.service.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,7 @@ public class AddressController {
     @PostMapping
     public ResponseEntity<Address> addAddress(
             @RequestHeader("Authorization") String token,
-            @RequestBody Address address) {
+            @RequestBody AddressRequest address) {
         String userId = jwtService.extractUserId(token.replace("Bearer ", ""));
         return ResponseEntity.ok(profileService.addAddress(userId, address));
     }

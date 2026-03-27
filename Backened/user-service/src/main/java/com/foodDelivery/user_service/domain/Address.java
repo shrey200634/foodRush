@@ -1,12 +1,13 @@
 package com.foodDelivery.user_service.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "addreesses")
+@Table(name = "addresses")
 @Getter
 @Setter
 @Builder
@@ -20,6 +21,8 @@ public class Address {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore
+
     private User user;
 
     @Column(nullable = false, length = 50)
