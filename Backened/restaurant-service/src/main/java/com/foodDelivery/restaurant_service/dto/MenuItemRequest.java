@@ -3,9 +3,13 @@ package com.foodDelivery.restaurant_service.dto;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
+
 
 @Data
 public class MenuItemRequest {
@@ -21,8 +25,8 @@ public class MenuItemRequest {
 
     private String categoryId;
     private String imageUrl;
-    private boolean isVeg=true;
-    private boolean isBestSeller=false;
+    private Boolean isVeg = true;
+    private Boolean isBestseller = false;
 
 
 }

@@ -39,7 +39,7 @@ public class RestaurantService {
         return  RestaurantResponse.fromEntity(restaurant);
     }
 
-    //--------update Restaruant -----//
+    //--------update Restaurant -----//
     @Transactional
     public RestaurantResponse updateRestaurant(String restaurantId , String ownerId , RestaurantRequest request){
         Restaurant restaurant = getRestaurantEntity(restaurantId);
@@ -76,7 +76,7 @@ public class RestaurantService {
                 .toList();
     }
 
-    //search for the restaurant by keyword or cusine
+    //search for the restaurant by keyword or cuisine
     public List<RestaurantResponse> search(String keyword){
         return restaurantRepository.searchByKeyword(keyword).stream()
                 .map(RestaurantResponse::fromEntity)
@@ -100,16 +100,13 @@ public class RestaurantService {
 
         if (cuisine != null && cuisine.isBlank()) {
             result = restaurantRepository.findNearbyByCuisine(lat, lng, radiusKm, cuisine);
-
         } else {
             result = restaurantRepository.findNearbyRestaurants(lat, lng, radiusKm);
         }
         return result.stream().map(row -> {
             // Native query returns all columns + distance_km as last column
-
             Restaurant r = restaurantRepository.findById((String) row[0]).orElse(null);
             if (r == null) return null;
-
             RestaurantResponse response = RestaurantResponse.fromEntity(r);
             // Last column is the calculated distance
             Object distObj = row[row.length - 1];
@@ -148,8 +145,9 @@ public class RestaurantService {
                 .orElseThrow(()->new RuntimeException("Restaurant not found:" + Id));
 
     }
- ///  Here we are validate the owner with his Id
-    private void validateOwner(Restaurant restaurant , String ownerId){
+ ///  Here we are validate the owner with his I'd
+ ///
+    public void validateOwner(Restaurant restaurant , String ownerId){
         if (!restaurant.getOwnerId().equals(ownerId)){
             throw new RuntimeException("You don't own this restaurant");
 
