@@ -127,7 +127,6 @@ public class MenuService {
 
     }
 
-
     //-----get all item flat list --------------//
 
 
@@ -154,7 +153,7 @@ public class MenuService {
                 .toList();
     }
 
-    /// ------searchIten ------//
+    /// ------searchItem ------//
 
     public List<MenuItemResponse> searchItem(String restId , String keyword  ){
         return menuItemRepo.findByNameContainingIgnoreCaseAndRestaurantRestaurantId(keyword, restId).stream()
@@ -190,12 +189,6 @@ public class MenuService {
         validateOwner(category.getRestaurant(), ownerId);
         categoryRepo.delete(category);
     }
-
-
-
-
-
-
     private MenuItem getItemEntity(String itemId) {
         return menuItemRepo.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Menu item not found: " + itemId));

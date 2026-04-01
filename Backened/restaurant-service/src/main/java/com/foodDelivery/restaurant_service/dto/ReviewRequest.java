@@ -14,7 +14,7 @@ public class ReviewRequest {
     @Max(value = 5, message = "Rating cannot exceed 5")
     private Integer rating ;
 
-    private String name ;
+    private String comment ;
     private String userName ;
 
 
