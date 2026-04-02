@@ -120,7 +120,7 @@ public class RestaurantService {
     }
 
 
-      // top rated
+      // top-rated
      public  List<RestaurantResponse> getTopRated(){
         return restaurantRepository.findTopRated().stream()
                 .limit(20)
