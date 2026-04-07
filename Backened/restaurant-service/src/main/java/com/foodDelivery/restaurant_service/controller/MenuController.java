@@ -133,6 +133,11 @@ public class MenuController {
         return ResponseEntity.ok("Category deleted");
     }
 
+    @GetMapping
+    public ResponseEntity<List<MenuItemResponse>> getFullMenu(@PathVariable String restaurantId) {
+        return ResponseEntity.ok(menuService.getAllItems(restaurantId));
+    }
+
 
 
 
