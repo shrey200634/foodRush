@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 public class LocationUpdate {
 
     private Double longitude ;
-    private String latitude ;
+    private Double latitude ;
     private Integer estimatedMins ;
     private String driverName ;
     private String driverPhone ;
