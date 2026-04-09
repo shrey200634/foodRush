@@ -1,5 +1,4 @@
 package com.foodDelivery.restaurant_service.config;
-package com.foodDelivery.restaurant_service.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
