@@ -7,14 +7,14 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-@Builder
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderCancelledEvent {
+public class PaymentFailedEvent {
     private String orderId ;
     private String userId ;
-    private String restaurantId ;
     private String reason ;
-    private LocalDateTime cancelledAt ;
+    private Integer attemptCount ;
+    private LocalDateTime failedAt;
 }
