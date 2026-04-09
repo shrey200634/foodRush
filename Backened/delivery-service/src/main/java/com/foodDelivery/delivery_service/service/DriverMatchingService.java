@@ -21,18 +21,13 @@ public class DriverMatchingService {
 
     private final RedisTemplate<String, String> redisTemplate;
     private final DriverRepo driverRepository;
-
     private static final String DRIVER_LOCATIONS_KEY = "driver-locations";
-
     @Value("${delivery.matching.radius-km:5.0}")
     private double matchingRadiusKm;
-
     @Value("${delivery.matching.max-drivers:10}")
     private int maxDrivers;
-
     @Value("${delivery.matching.retry-radius-km:10.0}")
     private double retryRadiusKm;
-
     //update driver location after 3 sec
     public void updateDriverLocation(String driverId, double latitude, double longitude) {
         redisTemplate.opsForGeo().add(
@@ -48,11 +43,9 @@ public class DriverMatchingService {
         redisTemplate.opsForGeo().remove(DRIVER_LOCATIONS_KEY, driverId);
         log.info("Removed driver location: driverId={}", driverId);
     }
-
     /**
      * Find the nearest available driver to a restaurant.
      * Uses Redis GEO RADIUS — O(log N) nearest-driver queries.
-     *
      * Algorithm:
      * 1. Query Redis GEO for all drivers within radius of restaurant
      * 2. Sort by distance ascending
@@ -96,7 +89,6 @@ public class DriverMatchingService {
             for (GeoResult<RedisGeoCommands.GeoLocation<String>> result : nearby) {
                 String driverId = result.getContent().getName();
                 double distanceKm = result.getDistance().getValue();
-
                 Optional<Driver> driverOpt = driverRepository.findById(driverId);
                 if (driverOpt.isPresent()) {
                     Driver driver = driverOpt.get();
@@ -112,7 +104,6 @@ public class DriverMatchingService {
 
             log.info("All {} nearby drivers are busy", nearby.getContent().size());
             return Optional.empty();
-
         } catch (Exception e) {
             log.error("Redis GEO query failed, falling back to DB query: {}", e.getMessage());
             return fallbackToDatabase();
