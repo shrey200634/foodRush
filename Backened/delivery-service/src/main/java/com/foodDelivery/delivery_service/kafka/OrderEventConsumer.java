@@ -25,17 +25,16 @@ public class OrderEventConsumer {
                 event.getOrderId(),event.getRestaurantName());
 
         try{
-          //  deliveryService.createDelivery(event);
+            deliveryService.createDelivery(event);
         }catch (Exception ex ){
             log.error("Failed to process order-placed event for orderId={}: {}",
                     event.getOrderId(), ex.getMessage());
-
-            //event will be retrived by kafka
-
+            // Event will be retried by Kafka
         }
     }
-    // consumes order cancelled events from order service
-    //cancle the delivery and release the driver
+
+    // Consumes order-cancelled events from order service
+    // Cancel the delivery and release the driver
 
     @KafkaListener(topics = "order-cancelled" , groupId = "delivery-service-group")
     public  void handleOrderCancelled(OrderCancelledEvent event){
@@ -43,7 +42,7 @@ public class OrderEventConsumer {
                 event.getOrderId() , event.getReason());
 
         try{
-            //deliveryService.cancelDelivery(event.getOrderId(), event.getReason());
+            deliveryService.cancelDelivery(event.getOrderId(), event.getReason());
         }catch (Exception ex ){
             log.error("Failed to process order-cancelled event for orderId={}: {}",
                     event.getOrderId()  , ex.getMessage());

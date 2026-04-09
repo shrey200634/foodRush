@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/driver")
+@RequestMapping("/api/v1/driver")
 @RequiredArgsConstructor
 
 public class DriverController {
@@ -29,7 +29,7 @@ public class DriverController {
     public ResponseEntity<?> registerDriver(
             @RequestHeader("Authorization") String authHeader,
             @Valid @RequestBody DriverRegistrationRequest request
-            ){
+    ){
         String userId = extractUserId(authHeader);
         DriverResponse response = deliveryService.registerDriver(userId,request);
         return ResponseEntity.ok(Map.of(

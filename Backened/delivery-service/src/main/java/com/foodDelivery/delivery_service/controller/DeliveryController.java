@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/delivery")
+@RequestMapping("/api/v1/delivery")
 @RequiredArgsConstructor
 public class DeliveryController {
 

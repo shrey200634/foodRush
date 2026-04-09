@@ -1,7 +1,7 @@
 package com.foodDelivery.user_service.controller;
 
 
-import com.foodDelivery.user_service.domain.User;
+import com.foodDelivery.user_service.dto.UserResponse;
 import com.foodDelivery.user_service.service.JwtService;
 import com.foodDelivery.user_service.service.ProfileService;
 import lombok.RequiredArgsConstructor;
@@ -19,16 +19,17 @@ public class ProfileController {
     private final JwtService jwtService;
 
     @GetMapping("/profile")
-    public ResponseEntity<User> getProfile(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<UserResponse> getProfile(@RequestHeader("Authorization") String token) {
         String userId = jwtService.extractUserId(token.replace("Bearer ", ""));
-        return ResponseEntity.ok(profileService.getProfile(userId));
+        return ResponseEntity.ok(UserResponse.fromEntity(profileService.getProfile(userId)));
     }
+
     @PutMapping("/profile")
-    public ResponseEntity<User> updateProfile(
+    public ResponseEntity<UserResponse> updateProfile(
             @RequestHeader("Authorization") String token,
             @RequestBody Map<String, String> updates) {
         String userId = jwtService.extractUserId(token.replace("Bearer ", ""));
-        return ResponseEntity.ok(profileService.updateProfile(userId, updates.get("name"), updates.get("phone")));
+        return ResponseEntity.ok(UserResponse.fromEntity(
+                profileService.updateProfile(userId, updates.get("name"), updates.get("phone"))));
     }
-
 }

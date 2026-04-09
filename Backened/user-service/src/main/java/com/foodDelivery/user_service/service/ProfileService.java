@@ -3,6 +3,7 @@ package com.foodDelivery.user_service.service;
 import com.foodDelivery.user_service.domain.Address;
 import com.foodDelivery.user_service.domain.User;
 import com.foodDelivery.user_service.dto.AddressRequest;
+import com.foodDelivery.user_service.exception.ResourceNotFoundException;
 import com.foodDelivery.user_service.repository.AddressRepository;
 import com.foodDelivery.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,7 @@ public class ProfileService {
 
     public User getProfile(String userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
     }
 
     public User updateProfile(String userId, String name, String phone) {
@@ -29,15 +30,13 @@ public class ProfileService {
         return userRepository.save(user);
     }
 
-    // --- Address CRUD ---
-
     public List<Address> getAddresses(String userId) {
         return addressRepository.findByUserUserId(userId);
     }
 
     public Address addAddress(String userId, AddressRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         Address address = Address.builder()
                 .user(user)
                 .label(request.getLabel())
@@ -53,7 +52,7 @@ public class ProfileService {
 
     public Address updateAddress(String addressId, Address updated) {
         Address address = addressRepository.findById(addressId)
-                .orElseThrow(() -> new RuntimeException("Address not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Address not found: " + addressId));
         if (updated.getLabel() != null) address.setLabel(updated.getLabel());
         if (updated.getStreet() != null) address.setStreet(updated.getStreet());
         if (updated.getCity() != null) address.setCity(updated.getCity());
@@ -64,6 +63,9 @@ public class ProfileService {
     }
 
     public void deleteAddress(String addressId) {
+        if (!addressRepository.existsById(addressId)) {
+            throw new ResourceNotFoundException("Address not found: " + addressId);
+        }
         addressRepository.deleteById(addressId);
     }
 }

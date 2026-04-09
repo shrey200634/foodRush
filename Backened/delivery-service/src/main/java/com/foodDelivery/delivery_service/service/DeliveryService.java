@@ -141,7 +141,7 @@ public class DeliveryService {
     public  void  attemptDriverAssignment(Delivery delivery){
         if ( delivery.getStatus()!= DeliveryStatus.PENDING){
             log.debug("Delivery {} is not PENDING, skipping assignment", delivery.getDeliveryId());
-               return;
+            return;
         }
         //use res location for matching (if available )
         double restaurantLat = delivery.getPickupLatitude() != null
@@ -155,7 +155,7 @@ public class DeliveryService {
             return;
         }
         Driver driver = nearestDriver.get();
-        assignDriver(delivery, driver, restaurantLat, restaurantLat);
+        assignDriver(delivery, driver, restaurantLat, restaurantLng);
     }
 
     // Assign a specific driver to a delivery
@@ -256,15 +256,15 @@ public class DeliveryService {
 
         //publish kafka event -trigger payment settlement
         eventProducer.sendDeliveryCompleted(DeliveryCompletedEvent.builder()
-                        .deliveryId(delivery.getDeliveryId())
-                        .orderId(delivery.getOrderId())
-                        .userId(delivery.getUserId())
-                        .restaurantId(delivery.getRestaurantId())
-                        .driverId(driverId)
-                        .distanceKm(delivery.getDistanceKm())
-                        .actualDeliveryMins(delivery.getActualDeliveryMins())
-                        .deliveredAt(now)
-                        .build());
+                .deliveryId(delivery.getDeliveryId())
+                .orderId(delivery.getOrderId())
+                .userId(delivery.getUserId())
+                .restaurantId(delivery.getRestaurantId())
+                .driverId(driverId)
+                .distanceKm(delivery.getDistanceKm())
+                .actualDeliveryMins(delivery.getActualDeliveryMins())
+                .deliveredAt(now)
+                .build());
         return toDeliveryResponse(delivery);
 
     }
@@ -293,14 +293,14 @@ public class DeliveryService {
 
     }
 
-     /// ////////----------------------QUERIES----------------------------//////////
-     //get delivery by orderId
-     public  DeliveryResponse getDeliveryByOrderId(String orderId ){
-         Delivery delivery = deliveryRepo.findByOrderId(orderId)
-                 .orElseThrow(()->new IllegalStateException("Delivery not found for order:" + orderId));
-         return toDeliveryResponse(delivery);
-     }
-     // get all deliveries  for user by userId
+    /// ////////----------------------QUERIES----------------------------//////////
+    //get delivery by orderId
+    public  DeliveryResponse getDeliveryByOrderId(String orderId ){
+        Delivery delivery = deliveryRepo.findByOrderId(orderId)
+                .orElseThrow(()->new IllegalStateException("Delivery not found for order:" + orderId));
+        return toDeliveryResponse(delivery);
+    }
+    // get all deliveries  for user by userId
     public List<DeliveryResponse> getAllDeliveriesByUserId(String userId ){
         return deliveryRepo.findByUserIdOrderByCreatedAtDesc(userId)
                 .stream()
@@ -309,29 +309,29 @@ public class DeliveryService {
     }
     //get Active deliveries for a user
     public  List<DeliveryResponse> getActiveDeliveryByUserId (String userId ){
-         return deliveryRepo.findActiveDeliveriesByUserId(userId)
-                 .stream()
-                 .map(this::toDeliveryResponse)
-                 .toList();
+        return deliveryRepo.findActiveDeliveriesByUserId(userId)
+                .stream()
+                .map(this::toDeliveryResponse)
+                .toList();
 
     }
     //get delivery history for a driver
     public  DeliveryResponse getActiveDeliveryForDriver(String driverId ){
-         Delivery delivery = deliveryRepo.findActiveDeliveryByDriverId(driverId)
-                 .orElseThrow(()-> new IllegalStateException("No active delivery for this driver"));
-         return toDeliveryResponse(delivery);
+        Delivery delivery = deliveryRepo.findActiveDeliveryByDriverId(driverId)
+                .orElseThrow(()-> new IllegalStateException("No active delivery for this driver"));
+        return toDeliveryResponse(delivery);
     }
 
     //Retry matching for all pending delivery (Called By Scheduler)
 
     @Transactional
     public void retryPendingDeliveries(){
-         List<Delivery> pending = deliveryRepo.findPendingDeliveries();
-         for (Delivery delivery : pending){
-             log.info("Retrying driver assignment for delivery {}", delivery.getDeliveryId());
-             attemptDriverAssignment(delivery);
+        List<Delivery> pending = deliveryRepo.findPendingDeliveries();
+        for (Delivery delivery : pending){
+            log.info("Retrying driver assignment for delivery {}", delivery.getDeliveryId());
+            attemptDriverAssignment(delivery);
 
-         }
+        }
     }
 
     //--------Mappers ---------------//

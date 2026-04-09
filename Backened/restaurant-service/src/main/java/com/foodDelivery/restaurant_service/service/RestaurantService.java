@@ -46,11 +46,11 @@ public class RestaurantService {
         validateOwner(restaurant, ownerId);
 
         if (request.getName() !=null) restaurant.setName(request.getName());
-        if (request.getDescription()!=null) restaurant.setDescription(restaurant.getDescription());
-        if (restaurant.getCuisineType()!=null ) restaurant.setCuisineType(restaurant.getCuisineType());
-        if (restaurant.getAddress()!=null) restaurant.setAddress(restaurant.getAddress());
-        if (restaurant.getLatitude()!=null) restaurant.setLatitude(restaurant.getLatitude());
-        if (restaurant.getLongitude()!=null) restaurant.setLongitude(restaurant.getLongitude());
+        if (request.getDescription()!=null) restaurant.setDescription(request.getDescription());
+        if (request.getCuisineType()!=null) restaurant.setCuisineType(request.getCuisineType());
+        if (request.getAddress()!=null) restaurant.setAddress(request.getAddress());
+        if (request.getLatitude()!=null) restaurant.setLatitude(request.getLatitude());
+        if (request.getLongitude()!=null) restaurant.setLongitude(request.getLongitude());
         if (request.getMinOrderAmount() != null) restaurant.setMinOrderAmount(request.getMinOrderAmount());
         if (request.getOpeningTime() != null) restaurant.setOpeningTime(request.getOpeningTime());
         if (request.getClosingTime() != null) restaurant.setClosingTime(request.getClosingTime());
@@ -98,7 +98,7 @@ public class RestaurantService {
     public  List<RestaurantResponse> findNearBy(double lat , double lng , double radiusKm , String cuisine) {
         List<Object[]> result;
 
-        if (cuisine != null && cuisine.isBlank()) {
+        if (cuisine != null && !cuisine.isBlank()) {
             result = restaurantRepository.findNearbyByCuisine(lat, lng, radiusKm, cuisine);
         } else {
             result = restaurantRepository.findNearbyRestaurants(lat, lng, radiusKm);
@@ -120,15 +120,15 @@ public class RestaurantService {
     }
 
 
-      // top-rated
-     public  List<RestaurantResponse> getTopRated(){
+    // top-rated
+    public  List<RestaurantResponse> getTopRated(){
         return restaurantRepository.findTopRated().stream()
                 .limit(20)
                 .map(RestaurantResponse::fromEntity)
                 .toList();
-     }
+    }
 
-     //delete Restaurant
+    //delete Restaurant
 
     @Transactional
     public void deleteRestaurant(String restaurantId , String ownerId){
@@ -145,8 +145,8 @@ public class RestaurantService {
                 .orElseThrow(()->new RuntimeException("Restaurant not found:" + Id));
 
     }
- ///  Here we are validate the owner with his I'd
- ///
+    ///  Here we are validate the owner with his I'd
+    ///
     public void validateOwner(Restaurant restaurant , String ownerId){
         if (!restaurant.getOwnerId().equals(ownerId)){
             throw new RuntimeException("You don't own this restaurant");

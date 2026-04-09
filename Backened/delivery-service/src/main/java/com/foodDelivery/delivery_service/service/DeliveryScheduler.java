@@ -27,18 +27,18 @@ public class DeliveryScheduler {
     public  void  retryPendingDeliveries(){
         deliveryService.retryPendingDeliveries();
     }
-    //every 60 sec .check for driver who haven't picked up within timedOut
+    // Every 60 sec: check for drivers who haven't picked up within timeout
     @Scheduled(fixedRate = 60000)
     public void checkPickupTimeouts(){
-        List<Delivery> assignedDeliveries= deliveryRepo.findByDriverIdAndStatusIn(
-                null , List.of(DeliveryStatus.DRIVER_ASSIGNED)
-        ).isEmpty()?List.of():deliveryRepo.findPendingDeliveries();
-        List<Delivery> allDeliveries = deliveryRepo.findAll().stream()
+        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(pickupTimeoutMinutes);
+
+        List<Delivery> timedOut = deliveryRepo.findAll().stream()
                 .filter(d -> d.getStatus() == DeliveryStatus.DRIVER_ASSIGNED)
                 .filter(d -> d.getAssignedAt() != null)
-                .filter(d -> d.getAssignedAt().plusMinutes(pickupTimeoutMinutes).isBefore(LocalDateTime.now()))
+                .filter(d -> d.getAssignedAt().isBefore(cutoff))
                 .toList();
-        for (Delivery delivery : allDeliveries) {
+
+        for (Delivery delivery : timedOut) {
             log.warn("Driver {} hasn't picked up order {} within {} minutes — reassigning",
                     delivery.getDriverId(), delivery.getOrderId(), pickupTimeoutMinutes);
             delivery.setStatus(DeliveryStatus.PENDING);

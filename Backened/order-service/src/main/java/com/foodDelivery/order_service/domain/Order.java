@@ -117,7 +117,7 @@ public class Order {
     public  void transitionTo(OrderStatus newStatus){
         if(!canTransitionTo(newStatus)){
             throw new IllegalStateException(
-                    "Cannot transition from " + this.status + "to" + newStatus
+                    "Cannot transition from " + this.status + " to " + newStatus
             );
         }
         this.status=newStatus;

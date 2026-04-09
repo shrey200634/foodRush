@@ -2,6 +2,9 @@ package com.foodDelivery.user_service.service;
 
 import com.foodDelivery.user_service.domain.User;
 import com.foodDelivery.user_service.dto.*;
+import com.foodDelivery.user_service.exception.DuplicateResourceException;
+import com.foodDelivery.user_service.exception.InvalidCredentialsException;
+import com.foodDelivery.user_service.exception.ResourceNotFoundException;
 import com.foodDelivery.user_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -23,15 +26,13 @@ public class AuthService {
     private static final String PENDING_PREFIX = "pending:";
 
     public String initiateRegistration(RegisterRequest request) {
-        // Check if email/phone already taken
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
+            throw new DuplicateResourceException("Email already registered");
         }
         if (userRepository.existsByPhone(request.getPhone())) {
-            throw new RuntimeException("Phone already registered");
+            throw new DuplicateResourceException("Phone already registered");
         }
 
-        // Store registration data temporarily in Redis (10 min expiry)
         String key = PENDING_PREFIX + request.getEmail();
         String value = String.join("|",
                 request.getName(),
@@ -42,23 +43,20 @@ public class AuthService {
         );
         redisTemplate.opsForValue().set(key, value, 10, TimeUnit.MINUTES);
 
-        // Send OTP
         otpService.generateAndSendOtp(request.getEmail());
 
         return "OTP sent to " + request.getEmail();
     }
 
     public AuthResponse verifyOtpAndRegister(VerifyOtpRequest request) {
-        // Verify OTP
         if (!otpService.verifyOtp(request.getEmail(), request.getOtp())) {
-            throw new RuntimeException("Invalid or expired OTP");
+            throw new InvalidCredentialsException("Invalid or expired OTP");
         }
 
-        // Get pending registration data
         String key = PENDING_PREFIX + request.getEmail();
         String data = redisTemplate.opsForValue().get(key);
         if (data == null) {
-            throw new RuntimeException("Registration expired. Please register again.");
+            throw new ResourceNotFoundException("Registration expired. Please register again.");
         }
 
         String[] parts = data.split("\\|");
@@ -66,12 +64,12 @@ public class AuthService {
                 .name(parts[0])
                 .email(parts[1])
                 .phone(parts[2])
-                .password(parts[3])  // Already BCrypt hashed
+                .password(parts[3])
                 .role(User.Role.valueOf(parts[4]))
                 .build();
 
         user = userRepository.save(user);
-        redisTemplate.delete(key);  // Clean up
+        redisTemplate.delete(key);
 
         String token = jwtService.generateToken(user.getUserId(), user.getEmail(), user.getRole().name());
 
@@ -80,10 +78,10 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with email: " + request.getEmail()));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid password");
+            throw new InvalidCredentialsException("Invalid password");
         }
 
         String token = jwtService.generateToken(user.getUserId(), user.getEmail(), user.getRole().name());

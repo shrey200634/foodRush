@@ -1,16 +1,23 @@
 package com.foodDelivery.restaurant_service.config;
+package com.foodDelivery.restaurant_service.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
@@ -18,18 +25,18 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session ->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth->auth
-                        //anyone can browse restaurant and menu
+                        // Anyone can browse restaurants and menus (GET only)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/nearby").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/top-rated").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/{restaurantId}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/*/menu/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/*/reviews").permitAll()
 
-                        .requestMatchers("/api/v1/restaurants/nearby").permitAll()
-                        .requestMatchers("/api/v1/restaurants/search").permitAll()
-                        .requestMatchers("/api/v1/restaurants/top-rated").permitAll()
-                        .requestMatchers("/api/v1/restaurants/*/menu/**").permitAll()
-                        .requestMatchers("/api/v1/restaurants/*/reviews").permitAll()
-
-                        // anything else require Auth
-
-                        .anyRequest().permitAll()
-                );
+                        // Everything else requires authentication
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
