@@ -6,6 +6,7 @@ import com.foodDelivery.payment_service.domain.Wallet;
 import com.foodDelivery.payment_service.dto.DeliveryCompletedEvent;
 import com.foodDelivery.payment_service.dto.PaymentCompletedEvent;
 import com.foodDelivery.payment_service.dto.PaymentFailedEvent;
+import com.foodDelivery.payment_service.exception.ResourceNotFoundException;
 import com.foodDelivery.payment_service.kafka.PaymentEventProducer;
 import com.foodDelivery.payment_service.repository.FundLockRepo;
 import com.foodDelivery.payment_service.repository.TransactionRepo;
@@ -13,7 +14,6 @@ import com.foodDelivery.payment_service.repository.WalletRepo;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -123,12 +123,12 @@ public class SettlementService {
 
         //publish payment-completed event
         paymentEventProducer.sendPaymentCompleted(PaymentCompletedEvent.builder()
-                        .orderID(event.getOrderId())
+                        .orderId(event.getOrderId())
                         .userId(event.getUserId())
                         .restaurantId(event.getRestaurantId())
                         .totalAmount(amount)
                         .platformFee(platformFee)
-                        .restaurantPayload(restaurantPayout)
+                        .restaurantPayout(restaurantPayout)
                         .settledAt(LocalDateTime.now())
                 .build());
         log.info("Settled orderId={}: total={}, platformFee={}, restaurantPayout={}, userBalance={}",
