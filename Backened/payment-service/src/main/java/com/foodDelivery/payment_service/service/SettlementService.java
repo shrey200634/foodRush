@@ -59,7 +59,7 @@ public class SettlementService {
             try{
                 doSettle(event);
                 log.info("Payment settled for orderId={} on attempt {}", event.getOrderId(), attempt);
-              return;;
+              return;
             }
             catch (Exception ex){
                 log.warn("Settlement attempt {}/{} failed for orderId={}: {}",
