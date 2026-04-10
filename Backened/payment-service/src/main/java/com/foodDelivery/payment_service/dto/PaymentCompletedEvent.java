@@ -14,12 +14,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 
 public class PaymentCompletedEvent {
-    private String orderID ;
+    private String orderId ;
     private String userId ;
     private String restaurantId ;
     private BigDecimal totalAmount ;
     private BigDecimal platformFee;
-    private  BigDecimal restaurantPayload ;
+    private  BigDecimal restaurantPayout ;
     private LocalDateTime settledAt;
 
 }
