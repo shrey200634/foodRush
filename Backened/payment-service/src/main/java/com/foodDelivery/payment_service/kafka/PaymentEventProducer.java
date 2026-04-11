@@ -16,16 +16,16 @@ public class PaymentEventProducer {
 
     public void sendPaymentCompleted(PaymentCompletedEvent event) {
         log.info("Publishing payment-completed: orderId={}, amount={}",
-                event.getOrderID(), event.getTotalAmount());
+                event.getOrderId(), event.getTotalAmount());
 
-        kafkaTemplate.send("payment-completed", event.getOrderID(), event)
+        kafkaTemplate.send("payment-completed", event.getOrderId(), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
                         log.error("Failed to publish payment-completed for orderId={}: {}",
-                                event.getOrderID(), ex.getMessage());
+                                event.getOrderId(), ex.getMessage());
                     } else {
                         log.info("payment-completed published: orderId={}, partition={}, offset={}",
-                                event.getOrderID(),
+                                event.getOrderId(),
                                 result.getRecordMetadata().partition(),
                                 result.getRecordMetadata().offset());
                     }
