@@ -23,14 +23,14 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
-        spring.json.add.type.headers: false
+        spring.json.type.mapping: orderPlaced:com.foodDelivery.order_service.dto.OrderPlacedEvent,orderAccepted:com.foodDelivery.order_service.dto.OrderAcceptedEvent,orderCancelled:com.foodDelivery.order_service.dto.OrderCancelledEvent
     consumer:
       group-id: order-service-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
-        spring.json.use.type.headers: false
+        spring.json.type.mapping: orderPlaced:com.foodDelivery.order_service.dto.OrderPlacedEvent,orderAccepted:com.foodDelivery.order_service.dto.OrderAcceptedEvent,orderCancelled:com.foodDelivery.order_service.dto.OrderCancelledEvent
 
 eureka:
   client:
