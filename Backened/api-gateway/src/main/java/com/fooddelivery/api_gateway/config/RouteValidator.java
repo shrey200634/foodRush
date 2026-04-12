@@ -14,7 +14,9 @@ public class RouteValidator {
     public static final List<String> openApiEndpoints = List.of(
             "/api/v1/auth/",
             "/eureka",
-            "/actuator"
+            "/actuator",
+            "/api/v1/restaurants"   // ← add this
+
     );
 
     public boolean isSecured(String path) {

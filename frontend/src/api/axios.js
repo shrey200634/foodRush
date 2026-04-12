@@ -16,7 +16,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // Only force logout when the auth endpoints themselves reject the token
+    const url = err.config?.url || "";
+    const isAuthCritical =
+      url.endsWith("/auth/login") ||
+      url.endsWith("/users/profile") && err.config?.method === "get";
+
+    if (err.response?.status === 401 && isAuthCritical) {
       useAuthStore.getState().logout();
       window.location.href = "/login";
     }
