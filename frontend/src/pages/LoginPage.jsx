@@ -100,7 +100,7 @@ export default function LoginPage() {
       </div>
 
       {/* CENTERED main content */}
-      <div style={{
+      <div className="login-grid" style={{
         position: "relative", zIndex: 5,
         maxWidth: 1260, margin: "0 auto",
         padding: "20px 48px 60px",
@@ -358,6 +358,23 @@ export default function LoginPage() {
         @keyframes pulse-dot {
           0%, 100% { opacity: 1; box-shadow: 0 0 0 0 ${TERRACOTTA}99; }
           50% { opacity: 0.7; box-shadow: 0 0 0 6px ${TERRACOTTA}00; }
+        }
+        @media (max-width: 900px) {
+          .login-grid {
+            grid-template-columns: 1fr !important;
+            gap: 40px !important;
+            padding: 20px 20px 40px !important;
+            min-height: auto !important;
+          }
+          .login-grid h1 {
+            font-size: clamp(2.4rem, 8vw, 3.5rem) !important;
+          }
+        }
+        @media (max-width: 600px) {
+          .login-grid {
+            padding: 16px 16px 32px !important;
+            gap: 28px !important;
+          }
         }
       `}</style>
     </div>

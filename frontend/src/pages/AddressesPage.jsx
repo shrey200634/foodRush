@@ -24,6 +24,27 @@ const LABELS = [
 ];
 const empty = { label: "HOME", street: "", city: "", state: "", pincode: "", latitude: 0, longitude: 0 };
 
+// Browser geolocation → reverse-geocode with Nominatim
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`,
+      { headers: { "Accept-Language": "en" } }
+    );
+    const data = await res.json();
+    if (data && data.address) {
+      const a = data.address;
+      return {
+        street: [a.road, a.neighbourhood, a.suburb].filter(Boolean).join(", ") || "",
+        city: a.city || a.town || a.village || a.county || "",
+        state: a.state || "",
+        pincode: a.postcode || "",
+      };
+    }
+  } catch (e) { /* silent */ }
+  return null;
+}
+
 // Geocode using OpenStreetMap Nominatim (free, no API key)
 async function geocode(query) {
   try {
@@ -47,6 +68,7 @@ export default function AddressesPage() {
   const [saving, setSaving] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [coordStatus, setCoordStatus] = useState(null); // null | 'found' | 'manual'
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => { fetchAddresses(); }, []);
 
@@ -78,10 +100,53 @@ export default function AddressesPage() {
     return () => clearTimeout(timer);
   }, [form.street, form.city, form.pincode, showModal]);
 
+  // Use browser geolocation
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) return toast.error("Geolocation not supported by your browser");
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setForm(f => ({ ...f, latitude: lat, longitude: lng }));
+        setCoordStatus("found");
+        // Try to reverse-geocode to fill address fields
+        const addr = await reverseGeocode(lat, lng);
+        if (addr) {
+          setForm(f => ({
+            ...f,
+            street: f.street || addr.street,
+            city: f.city || addr.city,
+            state: f.state || addr.state,
+            pincode: f.pincode || addr.pincode,
+            latitude: lat, longitude: lng,
+          }));
+          toast.success("Location detected! Address auto-filled.");
+        } else {
+          toast.success("Location coordinates set!");
+        }
+        setLocating(false);
+      },
+      (err) => {
+        console.warn("Geolocation error:", err.message);
+        toast.error("Could not get location. Please allow location access.");
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleSave = async () => {
     if (!form.street || !form.city) return toast.error("Street and city are required");
-    if (!form.latitude || !form.longitude) {
-      return toast.error("Couldn't find location. Try a more specific address.");
+    // Allow saving even without coordinates — many backends accept 0,0
+    if (!form.latitude && !form.longitude) {
+      // Try one last geocode attempt
+      const q = [form.street, form.city, form.state, form.pincode].filter(Boolean).join(", ");
+      const coords = await geocode(q);
+      if (coords) {
+        form.latitude = coords.latitude;
+        form.longitude = coords.longitude;
+      }
     }
     setSaving(true);
     try {
@@ -230,6 +295,22 @@ export default function AddressesPage() {
                 );
               })}
             </div>
+
+            {/* Use my location button */}
+            <button type="button" onClick={handleUseMyLocation} disabled={locating} style={{
+              width: "100%", padding: "12px", borderRadius: 10, border: `1.5px dashed ${TERRACOTTA}`,
+              background: `${TERRACOTTA}06`, color: TERRACOTTA_DEEP,
+              fontSize: "0.85rem", fontWeight: 600, fontFamily: "var(--font-sans)",
+              cursor: locating ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              marginBottom: 16, transition: "all 0.2s",
+            }}>
+              {locating ? (
+                <><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Detecting location...</>
+              ) : (
+                <><Navigation size={14} /> Use my current location</>
+              )}
+            </button>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <input value={form.street} onChange={set("street")} placeholder="Street address (e.g. 123 Park Avenue)" style={inputStyle} onFocus={focusH} onBlur={blurH} />

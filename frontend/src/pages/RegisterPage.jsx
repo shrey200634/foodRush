@@ -290,6 +290,14 @@ export default function RegisterPage() {
           from { opacity: 0; transform: scale(0.5); }
           to { opacity: 1; transform: scale(1); }
         }
+        @media (max-width: 600px) {
+          .register-form-wrap {
+            padding: 16px 16px 40px !important;
+          }
+          .register-form-wrap h1 {
+            font-size: 2.2rem !important;
+          }
+        }
       `}</style>
     </div>
   );

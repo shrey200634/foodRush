@@ -7,16 +7,23 @@ import SearchPage from "./pages/SearchPage";
 import RestaurantDetailPage from "./pages/RestaurantDetailPage";
 import ProfilePage from "./pages/ProfilePage";
 import AddressesPage from "./pages/AddressesPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import OrdersPage from "./pages/OrdersPage";
+import OrderDetailPage from "./pages/OrderDetailPage";
+import WalletPage from "./pages/WalletPage";
 import AppLayout from "./components/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import OrderTrackingPage from './pages/OrderTrackingPage';
 
 export default function App() {
   return (
     <Routes>
+      {/* Public */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-otp" element={<VerifyOtpPage />} />
 
+      {/* Protected — all under AppLayout (Navbar + main) */}
       <Route
         element={
           <ProtectedRoute>
@@ -29,6 +36,11 @@ export default function App() {
         <Route path="/restaurants/:id" element={<RestaurantDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/addresses" element={<AddressesPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/orders" element={<OrdersPage />} />
+        <Route path="/orders/:orderId" element={<OrderDetailPage />} />
+        <Route path="/wallet" element={<WalletPage />} />
+        <Route path='/orders/:orderId/track' element={<OrderTrackingPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
