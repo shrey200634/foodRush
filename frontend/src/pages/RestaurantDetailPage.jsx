@@ -4,6 +4,7 @@ import { Star, Clock, MapPin, ArrowLeft, Plus, Flame, MessageSquare, Search, Sen
 import toast from "react-hot-toast";
 import { useRestaurantStore } from "../store/restaurantStore";
 import { useAuthStore } from "../store/authStore";
+import { useCartStore } from "../store/cartStore";
 
 const INK = "#2B1D12";
 const INK_SOFT = "rgba(43,29,18,0.62)";
@@ -118,8 +119,8 @@ export default function RestaurantDetailPage() {
       )}
 
       {/* MENU - sidebar + main */}
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 32, marginTop: 48 }}>
-        <aside style={{
+      <div className="menu-layout" style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 32, marginTop: 48 }}>
+        <aside className="menu-sidebar" style={{
           position: "sticky", top: 100, alignSelf: "flex-start",
           maxHeight: "calc(100vh - 120px)", overflowY: "auto",
         }}>
@@ -211,7 +212,7 @@ export default function RestaurantDetailPage() {
                     {cat.items.length} {cat.items.length === 1 ? "item" : "items"}
                   </span>
                 </div>
-                <div>{cat.items.map((item, i) => <MenuItemRow key={item.itemId} item={item} index={i} />)}</div>
+                <div>{cat.items.map((item, i) => <MenuItemRow key={item.itemId} item={item} index={i} restaurantId={r.restaurantId} restaurantName={r.name} />)}</div>
               </section>
             ))
           )}
@@ -229,6 +230,37 @@ export default function RestaurantDetailPage() {
       <style>{`
         @keyframes fade-up { from { opacity:0; transform:translateY(16px);} to { opacity:1; transform:translateY(0);} }
         @keyframes shimmer { 0%{ background-position: -200% 0;} 100%{ background-position: 200% 0;} }
+        @keyframes fade-in { from{opacity:0} to{opacity:1} }
+        @keyframes scale-in { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+        @media (max-width: 768px) {
+          .menu-layout {
+            grid-template-columns: 1fr !important;
+            gap: 0 !important;
+          }
+          .menu-sidebar {
+            display: none !important;
+          }
+          .menu-filter-bar {
+            flex-wrap: wrap !important;
+          }
+          .menu-row {
+            flex-direction: column !important;
+            gap: 14px !important;
+          }
+          .menu-row-image {
+            width: 100% !important;
+            height: 180px !important;
+          }
+          .menu-row-add {
+            position: relative !important;
+            bottom: auto !important;
+            left: auto !important;
+            transform: none !important;
+            margin-top: 4px !important;
+            width: 100% !important;
+            justify-content: center !important;
+          }
+        }
       `}</style>
     </div>
   );
@@ -467,16 +499,33 @@ function BestsellerCard({ item }) {
 }
 
 // ────── Menu row with image ──────
-function MenuItemRow({ item, index }) {
+function MenuItemRow({ item, index, restaurantId, restaurantName }) {
   const [added, setAdded] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [showConflict, setShowConflict] = useState(false);
+  const [pendingConflict, setPendingConflict] = useState(null);
+  const { addItem, clearAndAdd } = useCartStore();
   const palette = paletteFor(item.name);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!item.isAvailable) return toast.error("Sorry, currently unavailable");
+    const result = await addItem(item, restaurantId, restaurantName);
+    if (result.conflict) {
+      setPendingConflict(result.existingRestaurant);
+      setShowConflict(true);
+      return;
+    }
     setAdded(true);
     toast.success(`${item.name} added to cart`);
+    setTimeout(() => setAdded(false), 1200);
+  };
+
+  const handleConfirmClear = async () => {
+    await clearAndAdd(item, restaurantId, restaurantName);
+    setShowConflict(false);
+    setAdded(true);
+    toast.success(`Cart cleared. ${item.name} added!`);
     setTimeout(() => setAdded(false), 1200);
   };
 
@@ -515,6 +564,7 @@ function MenuItemRow({ item, index }) {
         )}
       </div>
 
+      {/* Qty controls */}
       <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, position: "relative" }}>
         <div style={{
           width: 130, height: 130, borderRadius: 14,
@@ -562,6 +612,47 @@ function MenuItemRow({ item, index }) {
           {added ? "Added" : <><Plus size={13} strokeWidth={2.5} /> ADD</>}
         </button>
       </div>
+
+      {/* Cart cross-restaurant conflict modal */}
+      {showConflict && (
+        <div onClick={() => setShowConflict(false)} style={{
+          position: "fixed", inset: 0, zIndex: 300,
+          background: "rgba(43,29,18,0.4)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 24, animation: "fade-in 0.2s ease-out",
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: "#FFFAF0", borderRadius: 20, padding: "32px 28px",
+            maxWidth: 380, width: "100%",
+            boxShadow: "0 20px 60px rgba(43,29,18,0.25)",
+            animation: "scale-in 0.2s ease-out",
+          }}>
+            <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: 12 }}>🍽️</div>
+            <h3 style={{
+              fontFamily: "var(--font-display)", fontSize: "1.3rem",
+              fontWeight: 500, color: INK, marginBottom: 10, textAlign: "center",
+            }}>Replace cart items?</h3>
+            <p style={{ fontSize: "0.88rem", color: INK_SOFT, textAlign: "center", marginBottom: 24, lineHeight: 1.6 }}>
+              Your cart contains items from <strong>{pendingConflict}</strong>. Adding this item will clear your existing cart.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowConflict(false)} style={{
+                flex: 1, padding: "12px", borderRadius: 12,
+                border: `1px solid ${INK_HAIR}`, background: "transparent",
+                color: INK_SOFT, fontSize: "0.88rem", fontWeight: 500,
+                fontFamily: "var(--font-sans)", cursor: "pointer",
+              }}>Keep current</button>
+              <button onClick={handleConfirmClear} style={{
+                flex: 1, padding: "12px", borderRadius: 12, border: "none",
+                background: `linear-gradient(135deg, ${TERRACOTTA_SOFT}, ${TERRACOTTA} 55%, ${TERRACOTTA_DEEP})`,
+                color: "#FFF5E6", fontSize: "0.88rem", fontWeight: 600,
+                fontFamily: "var(--font-sans)", cursor: "pointer",
+                boxShadow: `0 4px 14px ${TERRACOTTA}40`,
+              }}>Yes, start fresh</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
