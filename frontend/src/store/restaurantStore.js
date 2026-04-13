@@ -30,7 +30,7 @@ export const useRestaurantStore = create((set, get) => ({
   searchRestaurants: async (query) => {
     set({ loading: true });
     try {
-      const res = await api.get("/restaurants/search", { params: { query } });
+      const res = await api.get("/restaurants/search", { params: { keyword: query } });
       set({ searchResults: res.data, loading: false });
     } catch { set({ loading: false }); }
   },

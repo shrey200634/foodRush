@@ -38,7 +38,13 @@ export default function LoginPage() {
     try {
       const user = await login(email, password);
       toast.success(`Welcome back, ${user.name || "there"}`);
-      navigate("/");
+      if (user.role === "DRIVER") {
+        navigate("/driver");
+      } else if (user.role === "RESTAURANT_OWNER") {
+        navigate("/owner");
+      } else {
+        navigate("/");
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || "Invalid credentials");
     } finally {

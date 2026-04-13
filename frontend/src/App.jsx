@@ -14,6 +14,8 @@ import WalletPage from "./pages/WalletPage";
 import AppLayout from "./components/AppLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import OrderTrackingPage from './pages/OrderTrackingPage';
+import OwnerDashboardPage from './pages/OwnerDashboardPage';
+import DriverDashboardPage from './pages/DriverDashboardPage';
 
 export default function App() {
   return (
@@ -41,6 +43,8 @@ export default function App() {
         <Route path="/orders/:orderId" element={<OrderDetailPage />} />
         <Route path="/wallet" element={<WalletPage />} />
         <Route path='/orders/:orderId/track' element={<OrderTrackingPage />} />
+        <Route path='/owner' element={<OwnerDashboardPage />} />
+        <Route path='/driver' element={<DriverDashboardPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

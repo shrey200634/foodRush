@@ -61,7 +61,8 @@ export default function CheckoutPage() {
     if (!selectedAddress) return toast.error("Please select a delivery address");
     setPlacing(true);
     try {
-      const order = await placeOrder(selectedAddress);
+      const addrObj = addresses.find((a) => a.addressId === selectedAddress);
+      const order = await placeOrder(addrObj);
       await clearCart();
       setOrderId(order.orderId);
       setSuccess(true);
