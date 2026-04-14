@@ -29,13 +29,23 @@ FoodRush implements a strict **Database-per-Service** design. Synchronous blocki
 graph TD
     Client[Client App: React/Zustand] -->|HTTPS / WSS| APIGW[API Gateway :8080\nAuth + Rate Limiter]
     
+    subgraph Infrastructure
+        CONFIG(Config Server :8888)
+        EUREKA(Eureka Discovery :8761)
+    end
+    
+    CONFIG -.->|Config Sync| APIGW
+    EUREKA -.->|Service Registry| APIGW
+    
     subgraph Spring Boot Microservices
         APIGW -->|REST| USR(User Service :8081)
         APIGW -->|REST| RST(Restaurant Svc :8082)
-        APIGW -->|REST| ORD(Order Svc :8083)
+        APIGW -->|REST/WSS| ORD(Order Svc :8083)
         APIGW -->|REST/WSS| DEL(Delivery Svc :8084)
         APIGW -->|REST| PAY(Payment Svc :8085)
     end
+    
+    Infrastructure -.->|Registry & Config| USR
     
     subgraph Persistence & Caching
         USR -->|JDBC| MySQL1[(User DB)]
@@ -44,7 +54,7 @@ graph TD
         DEL -->|JDBC| MySQL4[(Delivery DB)]
         PAY -->|JDBC| MySQL5[(Payment DB)]
         
-        ORD -->|Jedis| Red1[(Redis Cart)]
+        ORD -->|Jedis Pub/Sub| Red1[(Redis Cart)]
         DEL -->|Jedis| Red2[(Redis Configs)]
     end
 
@@ -56,7 +66,7 @@ graph TD
         
         KAFKA -->|consume| NOTIF[Notification Svc :8086]
     end
-    NOTIF -->|Email via SMPT| SMTP[Gmail API]
+    NOTIF -->|Email via SMTP| SMTP[Gmail API]
 ```
 
 ---
