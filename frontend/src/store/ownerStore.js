@@ -2,94 +2,182 @@ import { create } from "zustand";
 import api from "../api/axios";
 
 export const useOwnerStore = create((set, get) => ({
-  myRestaurant: null,
-  activeOrders: [],
+  restaurants: [],
+  currentRestaurant: null,
   menuItems: [],
+  categories: [],
+  orders: [],
+  activeOrders: [],
   loading: false,
-  error: null,
+  menuLoading: false,
+  ordersLoading: false,
 
-  fetchMyRestaurant: async () => {
-    set({ loading: true, error: null });
-    try {
-      const res = await api.get("/restaurants/my");
-      const restaurants = Array.isArray(res.data) ? res.data : [res.data];
-      const myRestaurant = restaurants.length > 0 ? restaurants[0] : null;
-      set({ myRestaurant, loading: false });
-      return myRestaurant;
-    } catch (err) {
-      set({ error: "Failed to fetch restaurant", loading: false });
-      return null;
-    }
-  },
-
-  fetchActiveOrders: async () => {
-    const { myRestaurant } = get();
-    if (!myRestaurant) return;
+  // ── Restaurants ──────────────────────────────────────────────────────
+  fetchMyRestaurants: async () => {
     set({ loading: true });
     try {
-      const res = await api.get(`/orders/restaurant/${myRestaurant.restaurantId}/active`);
-      set({ activeOrders: Array.isArray(res.data) ? res.data : [], loading: false });
+      const res = await api.get("/restaurants/my");
+      const list = Array.isArray(res.data) ? res.data : [res.data];
+      set({ restaurants: list, loading: false });
+      if (list.length > 0 && !get().currentRestaurant) {
+        set({ currentRestaurant: list[0] });
+      }
+      return list;
     } catch (err) {
       set({ loading: false });
+      throw err;
     }
   },
 
-  acceptOrder: async (orderId, prepTime = 15) => {
-    const { myRestaurant, activeOrders } = get();
-    if (!myRestaurant) return;
+  selectRestaurant: (restaurant) => {
+    set({ currentRestaurant: restaurant });
+  },
+
+  createRestaurant: async (data) => {
+    const res = await api.post("/restaurants", data);
+    set((s) => ({ restaurants: [...s.restaurants, res.data] }));
+    return res.data;
+  },
+
+  updateRestaurant: async (id, data) => {
+    const res = await api.put(`/restaurants/${id}`, data);
+    set((s) => ({
+      restaurants: s.restaurants.map((r) =>
+        r.restaurantId === id ? res.data : r
+      ),
+      currentRestaurant:
+        s.currentRestaurant?.restaurantId === id
+          ? res.data
+          : s.currentRestaurant,
+    }));
+    return res.data;
+  },
+
+  toggleOpen: async (restaurantId) => {
+    const res = await api.patch(`/restaurants/${restaurantId}/toggle`);
+    set((s) => ({
+      restaurants: s.restaurants.map((r) =>
+        r.restaurantId === restaurantId ? res.data : r
+      ),
+      currentRestaurant:
+        s.currentRestaurant?.restaurantId === restaurantId
+          ? res.data
+          : s.currentRestaurant,
+    }));
+    return res.data;
+  },
+
+  // ── Menu ──────────────────────────────────────────────────────────────
+  fetchMenu: async (restaurantId) => {
+    set({ menuLoading: true });
     try {
-      await api.post(`/restaurants/${myRestaurant.restaurantId}/accept-order/${orderId}?prepTime=${prepTime}`);
-      // Optimistically update
+      const [items, cats] = await Promise.all([
+        api.get(`/restaurants/${restaurantId}/menu/all`),
+        api.get(`/restaurants/${restaurantId}/menu/categories`),
+      ]);
       set({
-        activeOrders: activeOrders.map(o => 
-          o.orderId === orderId ? { ...o, status: "CONFIRMED" } : o
-        )
+        menuItems: items.data || [],
+        categories: cats.data || [],
+        menuLoading: false,
       });
-    } catch (err) {
-      console.error(err);
-      throw err;
+    } catch {
+      set({ menuLoading: false });
     }
+  },
+
+  addMenuItem: async (restaurantId, data) => {
+    const res = await api.post(`/restaurants/${restaurantId}/menu/items`, data);
+    set((s) => ({ menuItems: [...s.menuItems, res.data] }));
+    return res.data;
+  },
+
+  updateMenuItem: async (restaurantId, itemId, data) => {
+    const res = await api.put(
+      `/restaurants/${restaurantId}/menu/items/${itemId}`,
+      data
+    );
+    set((s) => ({
+      menuItems: s.menuItems.map((i) =>
+        i.itemId === itemId ? res.data : i
+      ),
+    }));
+    return res.data;
+  },
+
+  toggleItemAvailability: async (restaurantId, itemId) => {
+    const res = await api.patch(
+      `/restaurants/${restaurantId}/menu/items/${itemId}/toggle`
+    );
+    set((s) => ({
+      menuItems: s.menuItems.map((i) =>
+        i.itemId === itemId ? res.data : i
+      ),
+    }));
+    return res.data;
+  },
+
+  deleteMenuItem: async (restaurantId, itemId) => {
+    await api.delete(`/restaurants/${restaurantId}/menu/items/${itemId}`);
+    set((s) => ({
+      menuItems: s.menuItems.filter((i) => i.itemId !== itemId),
+    }));
+  },
+
+  addCategory: async (restaurantId, data) => {
+    const res = await api.post(
+      `/restaurants/${restaurantId}/menu/categories`,
+      data
+    );
+    set((s) => ({ categories: [...s.categories, res.data] }));
+    return res.data;
+  },
+
+  // ── Orders ────────────────────────────────────────────────────────────
+  fetchOrders: async (restaurantId) => {
+    set({ ordersLoading: true });
+    try {
+      const res = await api.get(`/orders/restaurant/${restaurantId}`);
+      set({ orders: res.data || [], ordersLoading: false });
+    } catch {
+      set({ ordersLoading: false });
+    }
+  },
+
+  fetchActiveOrders: async (restaurantId) => {
+    try {
+      const res = await api.get(`/orders/restaurant/${restaurantId}/active`);
+      set({ activeOrders: res.data || [] });
+    } catch {}
+  },
+
+  acceptOrder: async (restaurantId, orderId, prepTimeMins = 25) => {
+    const res = await api.post(
+      `/restaurants/${restaurantId}/accept-order/${orderId}`,
+      null,
+      { params: { prepTimeMins } }
+    );
+    // Update order list
+    set((s) => ({
+      activeOrders: s.activeOrders.map((o) =>
+        o.orderId === orderId ? { ...o, status: "ACCEPTED" } : o
+      ),
+      orders: s.orders.map((o) =>
+        o.orderId === orderId ? { ...o, status: "ACCEPTED" } : o
+      ),
+    }));
+    return res.data;
   },
 
   updateOrderStatus: async (orderId, status) => {
-      const { activeOrders } = get();
-      try {
-        await api.patch(`/orders/${orderId}/status`, { status });
-        set({
-            activeOrders: activeOrders.map(o => 
-              o.orderId === orderId ? { ...o, status } : o
-            )
-        });
-      } catch(err) {
-          throw err;
-      }
+    const res = await api.patch(`/orders/${orderId}/status`, { status });
+    set((s) => ({
+      activeOrders: s.activeOrders.map((o) =>
+        o.orderId === orderId ? { ...o, status } : o
+      ),
+      orders: s.orders.map((o) =>
+        o.orderId === orderId ? { ...o, status } : o
+      ),
+    }));
+    return res.data;
   },
-
-  fetchMenu: async () => {
-    const { myRestaurant } = get();
-    if (!myRestaurant) return;
-    set({ loading: true });
-    try {
-      const res = await api.get(`/restaurants/${myRestaurant.restaurantId}/menu/all`);
-      set({ menuItems: Array.isArray(res.data) ? res.data : [], loading: false });
-    } catch (err) {
-      set({ loading: false });
-    }
-  },
-
-  toggleMenuItem: async (itemId) => {
-    const { myRestaurant, menuItems } = get();
-    if (!myRestaurant) return;
-    try {
-      await api.patch(`/restaurants/${myRestaurant.restaurantId}/menu/items/${itemId}/toggle`);
-      set({
-        menuItems: menuItems.map(m => 
-          m.menuItemId === itemId ? { ...m, inStock: !m.inStock } : m
-        )
-      });
-    } catch (err) {
-      console.error(err);
-      throw err;
-    }
-  }
 }));

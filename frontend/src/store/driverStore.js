@@ -1,89 +1,131 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import api from "../api/axios";
 
-export const useDriverStore = create((set, get) => ({
-  driverProfile: null,
-  activeDelivery: null,
-  history: [],
-  loading: false,
+export const useDriverStore = create(
+  persist(
+    (set, get) => ({
+      driverProfile: null,
+      activeDelivery: null,
+      deliveryHistory: [],
+      isOnline: false,
+      currentLocation: null,
+      locationWatchId: null,
+      loading: false,
 
-  fetchProfile: async () => {
-    set({ loading: true });
-    try {
-      const res = await api.get("/driver/profile");
-      set({ driverProfile: res.data, loading: false });
-    } catch {
-      // If profile not found, maybe they are a new driver. Register them automatically!
-      try {
-        const regRes = await api.post("/driver/register", {
-          vehicleType: "BIKE",
-          licenseNumber: "DRV-" + Math.floor(Math.random() * 1000000)
+      // ── Profile ─────────────────────────────────────────────────────
+      fetchProfile: async () => {
+        set({ loading: true });
+        try {
+          const res = await api.get("/driver/profile");
+          set({ driverProfile: res.data, loading: false });
+          return res.data;
+        } catch {
+          set({ loading: false });
+          return null;
+        }
+      },
+
+      registerDriver: async (data) => {
+        const res = await api.post("/driver/register", data);
+        set({ driverProfile: res.data.driver });
+        return res.data;
+      },
+
+      // ── Online/Offline ──────────────────────────────────────────────
+      goOnline: async (latitude, longitude) => {
+        const res = await api.post("/driver/go-online", null, {
+          params: { latitude, longitude },
         });
-        set({ driverProfile: regRes.data?.driver || regRes.data, loading: false });
-      } catch {
-        set({ loading: false });
-      }
-    }
-  },
+        set({ isOnline: true, driverProfile: res.data.driver });
+        return res.data;
+      },
 
-  goOnline: async (lat, lng) => {
-    try {
-      const res = await api.post(`/driver/go-online?latitude=${lat}&longitude=${lng}`);
-      set({ driverProfile: res.data?.driver || res.data });
-    } catch (e) {
-      console.error(e);
-    }
-  },
+      goOffline: async () => {
+        const res = await api.post("/driver/go-offline");
+        set({ isOnline: false, driverProfile: res.data.driver });
+        // Stop location tracking
+        const watchId = get().locationWatchId;
+        if (watchId) {
+          navigator.geolocation.clearWatch(watchId);
+          set({ locationWatchId: null });
+        }
+        return res.data;
+      },
 
-  goOffline: async () => {
-    try {
-      const res = await api.post("/driver/go-offline");
-      set({ driverProfile: res.data?.driver || res.data });
-    } catch (e) {
-      console.error(e);
-    }
-  },
+      // ── Location ─────────────────────────────────────────────────────
+      updateLocation: async (latitude, longitude) => {
+        const driverId = get().driverProfile?.driverId;
+        if (!driverId) return;
+        set({ currentLocation: { latitude, longitude } });
+        try {
+          await api.post("/driver/location", {
+            driverId,
+            latitude,
+            longitude,
+          });
+        } catch {}
+      },
 
-  fetchActiveDelivery: async () => {
-    try {
-      const res = await api.get("/delivery/driver/active");
-      set({ activeDelivery: res.data });
-    } catch {
-      set({ activeDelivery: null }); // 404 or missing
-    }
-  },
+      startLocationTracking: () => {
+        if (!navigator.geolocation) return;
+        const watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            get().updateLocation(latitude, longitude);
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 }
+        );
+        set({ locationWatchId: watchId });
+      },
 
-  confirmPickup: async () => {
-    try {
-      const res = await api.post("/delivery/pickup");
-      set({ activeDelivery: res.data?.delivery || res.data });
-      return true;
-    } catch (e) {
-      throw e;
-    }
-  },
+      stopLocationTracking: () => {
+        const watchId = get().locationWatchId;
+        if (watchId) {
+          navigator.geolocation.clearWatch(watchId);
+          set({ locationWatchId: null });
+        }
+      },
 
-  completeDelivery: async () => {
-    try {
-      const res = await api.post("/delivery/complete");
-      set({ activeDelivery: null });
-      return true;
-    } catch (e) {
-      throw e;
-    }
-  },
+      // ── Deliveries ───────────────────────────────────────────────────
+      fetchActiveDelivery: async () => {
+        try {
+          const res = await api.get("/delivery/driver/active");
+          set({ activeDelivery: res.data });
+          return res.data;
+        } catch {
+          set({ activeDelivery: null });
+          return null;
+        }
+      },
 
-  updateLocation: async (lat, lng) => {
-    const profile = get().driverProfile;
-    if (!profile) return;
-    try {
-      await api.post("/driver/location", {
-        driverId: profile.driverId,
-        latitude: lat,
-        longitude: lng
-      });
-    } catch (e) {
-      // Silent fail
+      fetchDeliveryHistory: async () => {
+        try {
+          const res = await api.get("/delivery/driver/history");
+          const deliveries = res.data?.deliveries || res.data || [];
+          set({ deliveryHistory: Array.isArray(deliveries) ? deliveries : [] });
+        } catch {}
+      },
+
+      confirmPickup: async () => {
+        const res = await api.post("/delivery/pickup");
+        set({ activeDelivery: res.data.delivery });
+        return res.data;
+      },
+
+      completeDelivery: async () => {
+        const res = await api.post("/delivery/complete");
+        set({ activeDelivery: null });
+        return res.data;
+      },
+    }),
+    {
+      name: "foodrush-driver",
+      partialize: (state) => ({
+        driverProfile: state.driverProfile,
+        isOnline: state.isOnline,
+      }),
     }
-  }
-}));
+  )
+);

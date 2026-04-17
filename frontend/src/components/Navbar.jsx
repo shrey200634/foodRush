@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingBag, User, LogOut, MapPin, ChevronDown, Search, X, Star, Clock, Wallet, Menu, Store } from "lucide-react";
+import { ShoppingBag, User, LogOut, MapPin, ChevronDown, Search, X, Star, Clock, Wallet, Menu, Store, Bike } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { useCartStore } from "../store/cartStore";
 import { useRestaurantStore } from "../store/restaurantStore";
@@ -68,7 +68,7 @@ export default function Navbar() {
     setSearching(true);
     searchTimerRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/v1/restaurants/search?keyword=${encodeURIComponent(q.trim())}`, {
+        const res = await fetch(`/api/v1/restaurants/search?query=${encodeURIComponent(q.trim())}`, {
           headers: {
             "Authorization": `Bearer ${useAuthStore.getState().token}`,
             "Content-Type": "application/json",
@@ -105,29 +105,17 @@ export default function Navbar() {
 
   const handleLogout = () => { logout(); setMobileMenuOpen(false); navigate("/login"); };
 
-  const NAV_LINKS = [];
-  if (user?.role === "DRIVER") {
-    NAV_LINKS.push(
-      { to: "/profile", icon: User, label: "My Profile" },
-      { to: "/wallet", icon: Wallet, label: "Wallet" },
-      { to: "/driver", icon: Store, label: "Driver Dashboard" } // you can repurpose Store icon or use something else maybe MapPin
-    );
-  } else if (user?.role === "RESTAURANT_OWNER") {
-    NAV_LINKS.push(
-      { to: "/profile", icon: User, label: "My Profile" },
-      { to: "/wallet", icon: Wallet, label: "Wallet" },
-      { to: "/owner", icon: Store, label: "Owner Dashboard" }
-    );
-  } else {
-    NAV_LINKS.push(
-      { to: "/profile", icon: User, label: "My Profile" },
-      { to: "/addresses", icon: MapPin, label: "Addresses" },
-      { to: "/orders", icon: ShoppingBag, label: "My Orders" },
-      { to: "/wallet", icon: Wallet, label: "Wallet" }
-    );
-  }
+  const isOwner  = user?.role === "RESTAURANT_OWNER"  || user?.roles?.includes?.("RESTAURANT_OWNER");
+  const isDriver = user?.role === "DELIVERY_DRIVER"   || user?.roles?.includes?.("DELIVERY_DRIVER");
 
-  const isCustomer = !user || user?.role === "CUSTOMER";
+  const NAV_LINKS = [
+    ...(isOwner  ? [{ to: "/owner",  icon: Store,       label: "Owner Dashboard" }] : []),
+    ...(isDriver ? [{ to: "/driver", icon: Bike,        label: "Driver Dashboard" }] : []),
+    { to: "/profile",   icon: User,        label: "My Profile"  },
+    { to: "/addresses", icon: MapPin,      label: "Addresses"   },
+    { to: "/orders",    icon: ShoppingBag, label: "My Orders"   },
+    { to: "/wallet",    icon: Wallet,      label: "Wallet"      },
+  ];
 
   return (
     <>
@@ -158,8 +146,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop search bar */}
-          {isCustomer && (
-            <div ref={searchRef} className="hide-mobile" style={{ flex: 1, maxWidth: 480, position: "relative" }}>
+          <div ref={searchRef} className="hide-mobile" style={{ flex: 1, maxWidth: 480, position: "relative" }}>
             {searchOpen ? (
               <form onSubmit={handleSearchSubmit} style={{ position: "relative" }}>
                 <Search size={16} style={{
@@ -304,12 +291,10 @@ export default function Navbar() {
               </button>
             )}
           </div>
-          )}
 
           {/* Desktop right actions */}
           <div className="hide-mobile" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {/* Cart button */}
-            {isCustomer && (
             <button onClick={() => setCartOpen(true)} style={{
               display: "flex", alignItems: "center", gap: 7,
               padding: "8px 16px", borderRadius: 999, border: "none",
@@ -329,9 +314,8 @@ export default function Navbar() {
                   display: "flex", alignItems: "center", justifyContent: "center",
                   padding: "0 5px", animation: "scale-in 0.2s ease-out",
                 }}>{itemCount}</span>
-                )}
-              </button>
-            )}
+              )}
+            </button>
 
             {/* User dropdown */}
             <div ref={menuRef} style={{ position: "relative" }}>
@@ -395,37 +379,33 @@ export default function Navbar() {
           {/* Mobile right actions */}
           <div className="hide-desktop" style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {/* Mobile search */}
-            {isCustomer && (
-              <>
-                <button onClick={() => { setMobileMenuOpen(false); navigate("/search"); }} style={{
-                  width: 38, height: 38, borderRadius: 10, border: "none",
-                  background: FIELD, cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <Search size={17} style={{ color: INK_MUTED }} />
-                </button>
+            <button onClick={() => { setMobileMenuOpen(false); navigate("/search"); }} style={{
+              width: 38, height: 38, borderRadius: 10, border: "none",
+              background: FIELD, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Search size={17} style={{ color: INK_MUTED }} />
+            </button>
 
-                {/* Cart button mobile */}
-                <button onClick={() => setCartOpen(true)} style={{
-                  width: 38, height: 38, borderRadius: 10, border: "none",
-                  background: itemCount > 0 ? TERRACOTTA : FIELD,
-                  cursor: "pointer", position: "relative",
+            {/* Cart button mobile */}
+            <button onClick={() => setCartOpen(true)} style={{
+              width: 38, height: 38, borderRadius: 10, border: "none",
+              background: itemCount > 0 ? TERRACOTTA : FIELD,
+              cursor: "pointer", position: "relative",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <ShoppingBag size={17} style={{ color: itemCount > 0 ? "#FFF5E6" : INK_MUTED }} />
+              {itemCount > 0 && (
+                <span style={{
+                  position: "absolute", top: -4, right: -4,
+                  minWidth: 18, height: 18, borderRadius: 999,
+                  background: "#FFF5E6", color: TERRACOTTA_DEEP,
+                  fontSize: "0.65rem", fontWeight: 800,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <ShoppingBag size={17} style={{ color: itemCount > 0 ? "#FFF5E6" : INK_MUTED }} />
-                  {itemCount > 0 && (
-                    <span style={{
-                      position: "absolute", top: -4, right: -4,
-                      minWidth: 18, height: 18, borderRadius: 999,
-                      background: "#FFF5E6", color: TERRACOTTA_DEEP,
-                      fontSize: "0.65rem", fontWeight: 800,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      border: `2px solid rgba(250,243,231,0.88)`,
-                    }}>{itemCount}</span>
-                  )}
-                </button>
-              </>
-            )}
+                  border: `2px solid rgba(250,243,231,0.88)`,
+                }}>{itemCount}</span>
+              )}
+            </button>
 
             {/* Hamburger */}
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{
