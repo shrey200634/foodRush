@@ -28,7 +28,10 @@ export const useCartStore = create(
         try {
           await api.post("/cart/add", {
             restaurantId,
+            restaurantName: restaurantName,
             menuItemId: item.itemId,
+            menuItemName: item.name,
+            unitPrice: item.price,
             quantity: 1,
           });
         } catch (e) {

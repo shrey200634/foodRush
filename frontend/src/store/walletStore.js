@@ -11,17 +11,21 @@ export const useWalletStore = create((set) => ({
     set({ loading: true, error: null });
     try {
       const res = await api.get("/wallet/balance");
-      set({ balance: res.data?.balance ?? res.data ?? 0, loading: false });
+      set({ balance: res.data?.availableBalance ?? res.data?.balance ?? 0, loading: false });
     } catch (err) {
-      // Don't let this error propagate — just show 0 balance
-      console.warn("Failed to fetch wallet balance:", err.message);
-      set({ balance: 0, loading: false, error: "Could not load balance" });
+      try {
+        const createRes = await api.post("/wallet/create");
+        set({ balance: createRes.data?.availableBalance ?? createRes.data?.balance ?? 0, loading: false });
+      } catch (createErr) {
+        console.warn("Failed to fetch or create wallet:", createErr.message);
+        set({ balance: 0, loading: false, error: "Could not load balance" });
+      }
     }
   },
 
   addFunds: async (amount) => {
     const res = await api.post("/wallet/add-funds", { amount });
-    const newBalance = res.data?.balance ?? res.data;
+    const newBalance = res.data?.availableBalance ?? res.data?.balance;
     if (newBalance !== undefined) set({ balance: newBalance });
     return res.data;
   },
@@ -29,7 +33,7 @@ export const useWalletStore = create((set) => ({
   fetchTransactions: async () => {
     try {
       const res = await api.get("/transactions");
-      set({ transactions: Array.isArray(res.data) ? res.data : (res.data?.content || []) });
+      set({ transactions: Array.isArray(res.data) ? res.data : (res.data?.transactions || []) });
     } catch (err) {
       console.warn("Failed to fetch transactions:", err.message);
       set({ transactions: [] });

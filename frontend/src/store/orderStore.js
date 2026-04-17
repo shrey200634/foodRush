@@ -6,8 +6,14 @@ export const useOrderStore = create((set, get) => ({
   currentOrder: null,
   loading: false,
 
-  placeOrder: async (addressId) => {
-    const res = await api.post("/orders/place", { deliveryAddressId: addressId });
+  placeOrder: async (addressObj) => {
+    const addressStr = [addressObj.street, addressObj.city, addressObj.state, addressObj.pincode].filter(Boolean).join(", ");
+    const payload = {
+        deliveryAddressId: String(addressObj.addressId),
+        deliverAddress: addressStr,
+        specialInstructions: "Leave securely at the door"
+    };
+    const res = await api.post("/orders/place", payload);
     return res.data;
   },
 
