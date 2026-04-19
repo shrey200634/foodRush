@@ -1,28 +1,50 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import App from "./App";
 import "./index.css";
+import App from "./App.jsx";
+import socketService from "./services/socketService.js";
+import { requestNotificationPermission } from "./services/notificationService.js";
+import { useAuthStore } from "./store/authStore.js";
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
+const { token, user } = useAuthStore.getState();
+if (token && user?.userId) {
+  socketService.connect(token, user.userId);
+}
+
+useAuthStore.subscribe((state, prev) => {
+  if (state.token && !prev.token) {
+    socketService.connect(state.token, state.user?.userId);
+    requestNotificationPermission();
+  }
+  if (!state.token && prev.token) {
+    socketService.disconnect();
+  }
+});
+
+requestNotificationPermission();
+
+createRoot(document.getElementById("root")).render(
+  <StrictMode>
     <BrowserRouter>
       <Toaster
-        position="top-center"
+        position="top-right"
+        gutter={12}
         toastOptions={{
-          duration: 3000,
+          duration: 3500,
           style: {
-            fontFamily: '"Plus Jakarta Sans", sans-serif',
+            fontFamily: "var(--font-sans)",
+            fontSize: "0.88rem",
             borderRadius: "12px",
-            padding: "14px 20px",
-            fontSize: "0.9rem",
-            fontWeight: 500,
-            boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
+            boxShadow: "0 8px 32px rgba(28,18,8,0.15)",
+            padding: "12px 16px",
           },
+          success: { iconTheme: { primary: "#15803D", secondary: "#ECFDF5" } },
+          error: { iconTheme: { primary: "#DC2626", secondary: "#FEF2F2" } },
         }}
       />
       <App />
     </BrowserRouter>
-  </React.StrictMode>
+  </StrictMode>
 );

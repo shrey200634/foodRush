@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingBag, User, LogOut, MapPin, ChevronDown, Search, X, Star, Clock, Wallet, Menu, Store, Bike } from "lucide-react";
+import { ShoppingBag, User, LogOut, MapPin, ChevronDown, Search, X, Star, Clock, Wallet, Menu } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
 import { useCartStore } from "../store/cartStore";
 import { useRestaurantStore } from "../store/restaurantStore";
@@ -105,12 +105,10 @@ export default function Navbar() {
 
   const handleLogout = () => { logout(); setMobileMenuOpen(false); navigate("/login"); };
 
-  const isOwner  = user?.role === "RESTAURANT_OWNER"  || user?.roles?.includes?.("RESTAURANT_OWNER");
-  const isDriver = user?.role === "DELIVERY_DRIVER"   || user?.roles?.includes?.("DELIVERY_DRIVER");
+  
+  
 
   const NAV_LINKS = [
-    ...(isOwner  ? [{ to: "/owner",  icon: Store,       label: "Owner Dashboard" }] : []),
-    ...(isDriver ? [{ to: "/driver", icon: Bike,        label: "Driver Dashboard" }] : []),
     { to: "/profile",   icon: User,        label: "My Profile"  },
     { to: "/addresses", icon: MapPin,      label: "Addresses"   },
     { to: "/orders",    icon: ShoppingBag, label: "My Orders"   },

@@ -38,9 +38,9 @@ export default function LoginPage() {
     try {
       const user = await login(email, password);
       toast.success(`Welcome back, ${user.name || "there"}`);
-      if (user.role === "DRIVER") {
+      const r = (user.role || "").toUpperCase(); if (r.includes("DRIVER") || r.includes("DELIVERY")) {
         navigate("/driver");
-      } else if (user.role === "RESTAURANT_OWNER") {
+      } else if (r.includes("OWNER")) {
         navigate("/owner");
       } else {
         navigate("/");
