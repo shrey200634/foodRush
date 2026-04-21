@@ -17,46 +17,44 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<?> handleIllegalState(IllegalStateException ex) {
+    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
         log.warn("IllegalStateException: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
-                "error", ex.getMessage(),
-                "status", 409,
-                "timestamp", LocalDateTime.now().toString()
-        ));
+        return buildResponse(ex.getMessage(), HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException ex) {
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         log.warn("IllegalArgumentException: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                "error", ex.getMessage(),
-                "status", 400,
-                "timestamp", LocalDateTime.now().toString()
-        ));
+        return buildResponse(ex.getMessage(), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             errors.put(error.getField(), error.getDefaultMessage());
         }
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                "error", "Validation failed",
-                "details", errors,
-                "status", 400,
-                "timestamp", LocalDateTime.now().toString()
-        ));
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", 400);
+        body.put("error", "Validation failed");
+        body.put("message", "Validation failed");
+        body.put("details", errors);
+        return ResponseEntity.badRequest().body(body);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handleGeneral(Exception ex) {
+    public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex) {
         log.error("Unexpected error: ", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", "Something went wrong: " + ex.getMessage(),
-                "status", 500,
-                "timestamp", LocalDateTime.now().toString()
-        ));
+        return buildResponse("Something went wrong", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    private ResponseEntity<Map<String, Object>> buildResponse(String message, HttpStatus status) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", status.value());
+        body.put("error", message);
+        body.put("message", message);
+        return ResponseEntity.status(status).body(body);
     }
 }

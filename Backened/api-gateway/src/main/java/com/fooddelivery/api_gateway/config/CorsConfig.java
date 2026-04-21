@@ -6,15 +6,23 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
+import java.util.List;
+
 @Configuration
 public class CorsConfig {
     @Bean
     public CorsWebFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOrigin("http://localhost:5173");   // dev
-        config.addAllowedOrigin("http://localhost:3000");   // Docker / nginx
-        config.addAllowedOriginPattern("*");               // or just use this for all
+
+        // Use allowedOriginPatterns instead of allowedOrigins when credentials are true
+        // allowedOrigin("*") + allowCredentials(true) is ILLEGAL per CORS spec
+        config.setAllowedOriginPatterns(List.of("*"));
+
+        config.addAllowedMethod("*");
+        config.addAllowedHeader("*");
+        config.addExposedHeader("Authorization");
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

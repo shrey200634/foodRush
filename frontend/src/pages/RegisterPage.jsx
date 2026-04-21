@@ -40,11 +40,12 @@ export default function RegisterPage() {
     if (form.password.length < 6) return toast.error("Password must be at least 6 characters");
     setLoading(true);
     try {
-      await register(form);
-      toast.success("Account created! Verify your email.");
+      const res = await register(form);
+      toast.success(res.message || "Account created! Verify your email.");
       navigate("/verify-otp", { state: { email: form.email } });
     } catch (err) {
-      toast.error(err.response?.data?.message || "Registration failed");
+      const msg = err.response?.data?.message || err.response?.data?.error || "Registration failed. Please check your connection.";
+      toast.error(msg);
     } finally { setLoading(false); }
   };
 

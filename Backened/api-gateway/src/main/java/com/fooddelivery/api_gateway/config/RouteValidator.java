@@ -12,7 +12,7 @@ public class RouteValidator {
      * register, login, OTP verification, password reset etc. live.
      */
     public static final List<String> openApiEndpoints = List.of(
-            "/api/v1/auth/",
+            "/api/v1/auth",
             "/eureka",
             "/actuator",
             "/api/v1/restaurants"   // ← add this

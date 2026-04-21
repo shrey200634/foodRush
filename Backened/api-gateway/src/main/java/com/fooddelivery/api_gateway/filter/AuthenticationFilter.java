@@ -69,7 +69,13 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         log.warn("Auth failed: {}", message);
         exchange.getResponse().setStatusCode(status);
-        return exchange.getResponse().setComplete();
+        exchange.getResponse().getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
+        
+        String responseBody = String.format("{\"error\":\"%s\", \"message\":\"%s\", \"status\":%d}", 
+                message, message, status.value());
+        
+        return exchange.getResponse().writeWith(Mono.just(exchange.getResponse()
+                .bufferFactory().wrap(responseBody.getBytes())));
     }
 
     public static class Config { }

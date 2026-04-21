@@ -10,25 +10,19 @@ spring:
           lower-case-service-id: true
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOrigins: "*"
-            allowedMethods: "*"
-            allowedHeaders: "*"
       routes:
         # ─── USER SERVICE ──────────────────────────────
         - id: user-service-auth
           uri: lb://USER-SERVICE
           predicates:
             - Path=/api/v1/auth/**
-          filters:
-            - AuthenticationFilter
 
         - id: user-service-users
           uri: lb://USER-SERVICE
           predicates:
             - Path=/api/v1/users/**
+          filters:
+            - AuthenticationFilter
 
         # ─── RESTAURANT SERVICE ────────────────────────
         - id: restaurant-service
@@ -82,6 +76,12 @@ spring:
             - Path=/api/v1/driver/**
           filters:
             - AuthenticationFilter
+
+        # ─── WEBSOCKET ─────────────────────────────────
+        - id: websocket-route
+          uri: lb://DELIVERY-SERVICE
+          predicates:
+            - Path=/api/ws/**
 
 eureka:
   client:

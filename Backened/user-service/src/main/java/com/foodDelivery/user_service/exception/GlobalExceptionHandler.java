@@ -1,7 +1,7 @@
 package com.foodDelivery.user_service.exception;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hc.client5.http.auth.InvalidCredentialsException;
+import com.foodDelivery.user_service.exception.InvalidCredentialsException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -69,6 +69,7 @@ public class GlobalExceptionHandler {
         body.put("timestamp", LocalDateTime.now().toString());
         body.put("status", status.value());
         body.put("error", message);
+        body.put("message", message); // Added for frontend compatibility
         return ResponseEntity.status(status).body(body);
     }
 }

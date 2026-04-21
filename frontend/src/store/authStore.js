@@ -20,15 +20,33 @@ export const useAuthStore = create(
       },
 
       register: async (data) => {
-        const res = await api.post("/auth/register", data);
-        return res.data;
+        try {
+          const res = await api.post("/auth/register", data);
+          return res.data;
+        } catch (err) {
+          console.error("DEBUG: Registration failed:", {
+            status: err.response?.status,
+            data: err.response?.data,
+            message: err.message
+          });
+          throw err;
+        }
       },
 
       verifyOtp: async (email, otp) => {
-        const res = await api.post("/auth/verify-otp", { email, otp });
-        const { token, ...user } = res.data;
-        set({ token, user });
-        return user;
+        try {
+          const res = await api.post("/auth/verify-otp", { email, otp });
+          const { token, ...user } = res.data;
+          set({ token, user });
+          return user;
+        } catch (err) {
+          console.error("DEBUG: OTP verification failed:", {
+            status: err.response?.status,
+            data: err.response?.data,
+            message: err.message
+          });
+          throw err;
+        }
       },
 
       fetchProfile: async () => {
