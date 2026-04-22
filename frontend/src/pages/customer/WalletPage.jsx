@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Plus, ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
+import { Loader2, Plus, ArrowDownLeft, ArrowUpRight, Wallet, Lock, Unlock, CreditCard } from "lucide-react";
 import toast from "react-hot-toast";
 import { useWalletStore } from "../../store/walletStore";
 
@@ -14,11 +14,44 @@ const TERRACOTTA = "#C14A2A";
 const TERRACOTTA_SOFT = "#E07848";
 const TERRACOTTA_DEEP = "#8A2F18";
 const VEG = "#4A7C2B";
+const SAFFRON = "#D4882A";
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000];
 
+/**
+ * Transaction type classification based on backend txnType enum:
+ *  CREDIT  → money added to wallet
+ *  LOCK    → funds locked for an order
+ *  RELEASE → locked funds released (order cancelled / refund)
+ *  DEBIT   → payment settled (money deducted after delivery)
+ */
+const TX_META = {
+  CREDIT:  { label: "Money added",     color: VEG,            icon: ArrowDownLeft, sign: "+" },
+  LOCK:    { label: "Funds locked",     color: SAFFRON,        icon: Lock,          sign: "−" },
+  RELEASE: { label: "Funds released",   color: "#6D28D9",      icon: Unlock,        sign: "+" },
+  DEBIT:   { label: "Payment settled",  color: TERRACOTTA_DEEP,icon: CreditCard,    sign: "−" },
+};
+
+function getTxMeta(tx) {
+  // Backend sends txnType field (CREDIT, LOCK, RELEASE, DEBIT)
+  const txnType = (tx.txnType || tx.type || tx.transactionType || "").toUpperCase();
+  if (TX_META[txnType]) return TX_META[txnType];
+
+  // Fallback classification
+  if (txnType.includes("CREDIT") || txnType.includes("ADD") || txnType.includes("REFUND")) return TX_META.CREDIT;
+  if (txnType.includes("LOCK")) return TX_META.LOCK;
+  if (txnType.includes("RELEASE")) return TX_META.RELEASE;
+  if (txnType.includes("DEBIT") || txnType.includes("PAY") || txnType.includes("ORDER") || txnType.includes("SETTLE")) return TX_META.DEBIT;
+  return tx.amount > 0 ? TX_META.CREDIT : TX_META.DEBIT;
+}
+
 export default function WalletPage() {
-  const { balance, transactions, loading, fetchBalance, addFunds, fetchTransactions } = useWalletStore();
+  const {
+    balance, lockedBalance, totalBalance,
+    transactions, loading,
+    fetchBalance, addFunds, fetchTransactions,
+  } = useWalletStore();
+
   const [amount, setAmount] = useState("");
   const [adding, setAdding] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -43,13 +76,6 @@ export default function WalletPage() {
     } finally {
       setAdding(false);
     }
-  };
-
-  const txType = (tx) => {
-    const t = (tx.type || tx.transactionType || "").toUpperCase();
-    if (t.includes("CREDIT") || t.includes("ADD") || t.includes("REFUND")) return "credit";
-    if (t.includes("DEBIT") || t.includes("PAY") || t.includes("ORDER")) return "debit";
-    return tx.amount > 0 ? "credit" : "debit";
   };
 
   return (
@@ -90,7 +116,8 @@ export default function WalletPage() {
             }}>FoodRush Wallet</span>
           </div>
 
-          <div>
+          {/* Available balance */}
+          <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: "0.82rem", color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>
               Available balance
             </p>
@@ -106,6 +133,36 @@ export default function WalletPage() {
               </div>
             )}
           </div>
+
+          {/* Locked + Total balance row */}
+          {(lockedBalance > 0 || totalBalance > 0) && (
+            <div style={{
+              display: "flex", gap: 24, paddingTop: 16,
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+            }}>
+              {lockedBalance > 0 && (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 4 }}>
+                    <Lock size={11} style={{ color: SAFFRON }} />
+                    <span style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
+                      Locked
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "1rem", color: SAFFRON, fontWeight: 600, fontFamily: "var(--font-display)" }}>
+                    ₹{Number(lockedBalance).toFixed(2)}
+                  </div>
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize: "0.68rem", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 4 }}>
+                  Total
+                </div>
+                <div style={{ fontSize: "1rem", color: "rgba(255,255,255,0.7)", fontWeight: 600, fontFamily: "var(--font-display)" }}>
+                  ₹{totalBalance !== null ? Number(totalBalance).toFixed(2) : "0.00"}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -155,6 +212,7 @@ export default function WalletPage() {
               fontSize: "1rem", fontFamily: "var(--font-sans)", color: INK,
               outline: "none", transition: "all 0.2s",
               boxShadow: focused ? `0 0 0 3px ${TERRACOTTA}12` : "none",
+              boxSizing: "border-box",
             }}
           />
         </div>
@@ -196,13 +254,21 @@ export default function WalletPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column" }}>
             {transactions.map((tx, i) => {
-              const type = txType(tx);
-              const isCredit = type === "credit";
+              const meta = getTxMeta(tx);
+              const Icon = meta.icon;
               const txDate = tx.createdAt || tx.timestamp
                 ? new Date(tx.createdAt || tx.timestamp).toLocaleDateString("en-IN", {
                     day: "numeric", month: "short", year: "numeric",
                   })
                 : null;
+
+              // Description: prefer backend description, then construct from type
+              const description = tx.description || tx.remarks || meta.label;
+
+              // Order reference
+              const orderRef = tx.orderId
+                ? ` · Order #${tx.orderId.slice(-6).toUpperCase()}`
+                : "";
 
               return (
                 <div key={tx.transactionId || i} style={{
@@ -213,28 +279,31 @@ export default function WalletPage() {
                 }}>
                   <div style={{
                     width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                    background: isCredit ? `${VEG}12` : `${TERRACOTTA}10`,
+                    background: `${meta.color}12`,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    {isCredit
-                      ? <ArrowDownLeft size={16} style={{ color: VEG }} />
-                      : <ArrowUpRight size={16} style={{ color: TERRACOTTA } } />
-                    }
+                    <Icon size={16} style={{ color: meta.color }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: "0.9rem", fontWeight: 600, color: INK, marginBottom: 2 }}>
-                      {tx.description || tx.remarks || (isCredit ? "Money added" : "Order payment")}
+                      {description}
                     </p>
-                    {txDate && (
-                      <p style={{ fontSize: "0.75rem", color: INK_MUTED }}>{txDate}</p>
-                    )}
+                    <p style={{ fontSize: "0.75rem", color: INK_MUTED }}>
+                      {txDate}{orderRef}
+                    </p>
                   </div>
-                  <div style={{
-                    fontSize: "0.95rem", fontWeight: 700,
-                    color: isCredit ? VEG : TERRACOTTA_DEEP,
-                    flexShrink: 0,
-                  }}>
-                    {isCredit ? "+" : "−"}₹{Math.abs(tx.amount).toFixed(0)}
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{
+                      fontSize: "0.95rem", fontWeight: 700,
+                      color: meta.color,
+                    }}>
+                      {meta.sign}₹{Math.abs(tx.amount).toFixed(0)}
+                    </div>
+                    {tx.balanceAfter !== undefined && tx.balanceAfter !== null && (
+                      <div style={{ fontSize: "0.65rem", color: INK_MUTED, marginTop: 1 }}>
+                        Bal: ₹{Number(tx.balanceAfter).toFixed(0)}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

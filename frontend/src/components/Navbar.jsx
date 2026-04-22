@@ -332,7 +332,7 @@ export default function Navbar() {
                   color: "#FFF5E6", fontSize: "0.78rem", fontWeight: 700,
                 }}>{user?.name?.charAt(0)?.toUpperCase() || "U"}</div>
                 <span style={{ fontSize: "0.85rem", fontWeight: 500, color: INK, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {user?.name?.split(" ")[0] || "User"}
+                  {user?.name?.split(" ")?.[0] || "User"}
                 </span>
                 <ChevronDown size={13} style={{ color: INK_MUTED, transition: "transform 0.2s", transform: menuOpen ? "rotate(180deg)" : "rotate(0)" }} />
               </button>

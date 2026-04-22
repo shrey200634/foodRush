@@ -25,7 +25,7 @@ public class OrderService {
     // ─── Place Order (from Cart) ───────────────────────────────────────
 
     @Transactional
-    public OrderResponse placeOrder(String userId, PlaceOrderRequest request) {
+    public OrderResponse placeOrder(String userId, String userEmail, PlaceOrderRequest request) {
         // 1. Get current cart
         CartResponse cart = cartService.getCart(userId);
 
@@ -72,6 +72,8 @@ public class OrderService {
             orderEventProducer.sendOrderPlaced(OrderPlacedEvent.builder()
                     .orderId(savedOrder.getOrderId())
                     .userId(userId)
+                    .userEmail(userEmail)
+                    .userName("Customer")
                     .restaurantId(cart.getRestaurantId())
                     .restaurantName(cart.getRestaurantName())
                     .totalAmount(cart.getTotal())

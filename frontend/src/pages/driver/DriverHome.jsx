@@ -10,6 +10,7 @@ import {
 import { useDriverStore } from "../../store/driverStore";
 import { useAuthStore } from "../../store/authStore";
 import socketService from "../../services/socketService";
+import api from "../../api/axios";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -18,15 +19,15 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-const TC      = "#C0401E";
+const TC = "#C0401E";
 const TC_SOFT = "#DE6A40";
 const SUCCESS = "#15803D";
 const SAFFRON = "#D4882A";
-const INK     = "#1C1208";
+const INK = "#1C1208";
 const INK_MUTED = "rgba(28,18,8,0.38)";
 const INK_HAIR = "rgba(28,18,8,0.07)";
-const CARD    = "#FFF9EE";
-const FIELD   = "#F5ECD8";
+const CARD = "#FFF9EE";
+const FIELD = "#F5ECD8";
 
 const makeIcon = (emoji, color) => L.divIcon({
   className: "",
@@ -36,8 +37,8 @@ const makeIcon = (emoji, color) => L.divIcon({
   iconSize: [44, 44], iconAnchor: [22, 44], popupAnchor: [0, -44],
 });
 const driverIcon = makeIcon("🛵", SUCCESS);
-const restIcon   = makeIcon("🍽", TC);
-const homeIcon   = makeIcon("🏠", SAFFRON);
+const restIcon = makeIcon("🍽", TC);
+const homeIcon = makeIcon("🏠", SAFFRON);
 
 /*
  * Backend Delivery Lifecycle:
@@ -50,9 +51,9 @@ const homeIcon   = makeIcon("🏠", SAFFRON);
  *  7. Driver completes delivery → DELIVERED, driver back to ONLINE
  */
 const DELIVERY_STEPS = [
-  { key: "DRIVER_ASSIGNED", label: "Assigned",    emoji: "📋", desc: "Head to the restaurant" },
-  { key: "PICKED_UP",       label: "Picked Up",   emoji: "📦", desc: "Delivering to customer" },
-  { key: "DELIVERED",        label: "Delivered",    emoji: "✅", desc: "Order complete!" },
+  { key: "DRIVER_ASSIGNED", label: "Assigned", emoji: "📋", desc: "Head to the restaurant" },
+  { key: "PICKED_UP", label: "Picked Up", emoji: "📦", desc: "Delivering to customer" },
+  { key: "DELIVERED", label: "Delivered", emoji: "✅", desc: "Order complete!" },
 ];
 
 function MapFlyTo({ pos }) {
@@ -72,16 +73,16 @@ export default function DriverHome() {
     fetchActiveDelivery, confirmPickup, completeDelivery, registerDriver,
   } = useDriverStore();
 
-  const [toggling, setToggling]     = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
-  const [mapCenter, setMapCenter]   = useState([28.6139, 77.209]);
+  const [mapCenter, setMapCenter] = useState([28.6139, 77.209]);
   const locTimer = useRef(null);
   const prevDeliveryId = useRef(null);
 
   // Fetch profile + active delivery on mount
   useEffect(() => {
-    fetchProfile().catch(() => {});
-    fetchActiveDelivery().catch(() => {});
+    fetchProfile().catch(() => { });
+    fetchActiveDelivery().catch(() => { });
   }, []);
 
   // Poll for active delivery every 10s when online (this is how driver discovers assignments)
@@ -172,14 +173,28 @@ export default function DriverHome() {
 
   const handlePickup = async () => {
     setActionBusy(true);
-    try { await confirmPickup(); toast.success("Pickup confirmed! Head to the customer 🏠"); }
+    try { 
+      await confirmPickup(); 
+      if (activeDelivery?.orderId) {
+        api.patch(`/orders/${activeDelivery.orderId}/status`, { status: "PICKED_UP" })
+          .catch(err => console.warn("Order status sync failed:", err));
+      }
+      toast.success("Pickup confirmed! Head to the customer 🏠"); 
+    }
     catch (err) { toast.error(err?.response?.data?.message || "Failed to confirm pickup"); }
     setActionBusy(false);
   };
 
   const handleComplete = async () => {
     setActionBusy(true);
-    try { await completeDelivery(); toast.success("Delivery complete! Great job 🎉"); }
+    try { 
+      await completeDelivery(); 
+      if (activeDelivery?.orderId) {
+        api.patch(`/orders/${activeDelivery.orderId}/status`, { status: "DELIVERED" })
+          .catch(err => console.warn("Order status sync failed:", err));
+      }
+      toast.success("Delivery complete! Great job 🎉"); 
+    }
     catch (err) { toast.error(err?.response?.data?.message || "Failed to complete delivery"); }
     setActionBusy(false);
   };
@@ -187,7 +202,7 @@ export default function DriverHome() {
   // Show registration screen if no driver profile
   if (!driverProfile) return <RegisterScreen user={user} onSuccess={async () => { await fetchProfile(); }} />;
 
-  const locPos  = currentLocation ? [currentLocation.latitude, currentLocation.longitude] : null;
+  const locPos = currentLocation ? [currentLocation.latitude, currentLocation.longitude] : null;
   const pickPos = activeDelivery?.pickupLatitude ? [parseFloat(activeDelivery.pickupLatitude), parseFloat(activeDelivery.pickupLongitude)] : null;
   const custPos = activeDelivery?.dropoffLatitude ? [parseFloat(activeDelivery.dropoffLatitude), parseFloat(activeDelivery.dropoffLongitude)] : null;
   // Backend DeliveryStatus: DRIVER_ASSIGNED, PICKED_UP, IN_TRANSIT
@@ -201,9 +216,11 @@ export default function DriverHome() {
       <div style={{ padding: "20px 18px 0" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
-            <h2 style={{ fontFamily: "var(--font-display)", fontSize: "1.6rem", fontWeight: 500,
-              color: INK, letterSpacing: "-0.02em" }}>
-              Hey, {driverProfile.name || user?.name?.split(" ")[0] || "Driver"} 👋
+            <h2 style={{
+              fontFamily: "var(--font-display)", fontSize: "1.6rem", fontWeight: 500,
+              color: INK, letterSpacing: "-0.02em"
+            }}>
+              Hey, {driverProfile?.name || (user?.name ? user.name.split(" ")[0] : "Driver")} 👋
             </h2>
             <p style={{ fontSize: "0.8rem", color: INK_MUTED, marginTop: 3 }}>
               {driverProfile.vehicleType} · {driverProfile.vehicleNumber || driverProfile.vehicleNum || "—"}
@@ -218,7 +235,8 @@ export default function DriverHome() {
             cursor: toggling ? "not-allowed" : "pointer",
             boxShadow: isOnline ? "0 4px 16px rgba(21,128,61,0.45)" : `0 4px 16px ${TC}50`,
             display: "flex", alignItems: "center", gap: 8, opacity: toggling ? 0.7 : 1,
-            transition: "all 0.3s" }}>
+            transition: "all 0.3s"
+          }}>
             {toggling
               ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
               : isOnline ? <WifiOff size={16} /> : <Wifi size={16} />}
@@ -235,21 +253,29 @@ export default function DriverHome() {
 
       {/* ─── Active delivery card with step-by-step lifecycle ─── */}
       {activeDelivery ? (
-        <div style={{ margin: "0 16px 20px", background: "#FFF", borderRadius: 20,
-          border: `2px solid ${TC}25`, overflow: "hidden", boxShadow: `0 6px 24px ${TC}15` }}>
-          <div style={{ background: `linear-gradient(135deg, ${TC_SOFT}12, ${TC}06)`,
-            padding: "18px 20px", borderBottom: `1px solid ${INK_HAIR}` }}>
+        <div style={{
+          margin: "0 16px 20px", background: "#FFF", borderRadius: 20,
+          border: `2px solid ${TC}25`, overflow: "hidden", boxShadow: `0 6px 24px ${TC}15`
+        }}>
+          <div style={{
+            background: `linear-gradient(135deg, ${TC_SOFT}12, ${TC}06)`,
+            padding: "18px 20px", borderBottom: `1px solid ${INK_HAIR}`
+          }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase",
-                  letterSpacing: "0.12em", color: INK_MUTED }}>Active Delivery</div>
+                <div style={{
+                  fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase",
+                  letterSpacing: "0.12em", color: INK_MUTED
+                }}>Active Delivery</div>
                 <div style={{ fontFamily: "var(--font-display)", fontSize: "1.3rem", color: INK, marginTop: 2 }}>
                   #{(activeDelivery.orderId || "").slice(-6).toUpperCase()}
                 </div>
               </div>
-              <span style={{ padding: "6px 14px", borderRadius: 999,
+              <span style={{
+                padding: "6px 14px", borderRadius: 999,
                 background: isPickedUp ? `${SUCCESS}12` : `${TC}10`,
-                color: isPickedUp ? SUCCESS : TC, fontSize: "0.75rem", fontWeight: 700 }}>
+                color: isPickedUp ? SUCCESS : TC, fontSize: "0.75rem", fontWeight: 700
+              }}>
                 {isPickedUp ? "In Transit" : "Assigned"}
               </span>
             </div>
@@ -307,16 +333,19 @@ export default function DriverHome() {
 
             {/* Estimated time */}
             {activeDelivery.estimatedDeliveryMins > 0 && (
-              <div style={{ marginTop: 14, padding: "10px 14px", background: `${SAFFRON}08`,
+              <div style={{
+                marginTop: 14, padding: "10px 14px", background: `${SAFFRON}08`,
                 borderRadius: 10, fontSize: "0.82rem", color: SAFFRON, fontWeight: 600,
-                display: "flex", alignItems: "center", gap: 6, border: `1px solid ${SAFFRON}15` }}>
+                display: "flex", alignItems: "center", gap: 6, border: `1px solid ${SAFFRON}15`
+              }}>
                 <Clock size={14} /> Estimated: {activeDelivery.estimatedDeliveryMins} mins
               </div>
             )}
 
             {/* Action button */}
             <button onClick={isPickedUp ? handleComplete : handlePickup} disabled={actionBusy}
-              style={{ width: "100%", marginTop: 18, padding: "16px", borderRadius: 14, border: "none",
+              style={{
+                width: "100%", marginTop: 18, padding: "16px", borderRadius: 14, border: "none",
                 background: isPickedUp
                   ? "linear-gradient(135deg,#16A34A,#15803D)"
                   : `linear-gradient(135deg,${TC_SOFT},${TC})`,
@@ -325,7 +354,8 @@ export default function DriverHome() {
                 fontFamily: "var(--font-sans)", display: "flex", alignItems: "center",
                 justifyContent: "center", gap: 10,
                 boxShadow: isPickedUp ? "0 6px 20px rgba(21,128,61,0.4)" : `0 6px 20px ${TC}40`,
-                opacity: actionBusy ? 0.7 : 1, transition: "all 0.3s" }}>
+                opacity: actionBusy ? 0.7 : 1, transition: "all 0.3s"
+              }}>
               {actionBusy
                 ? <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
                 : isPickedUp
@@ -343,8 +373,10 @@ export default function DriverHome() {
         </div>
       ) : (
         /* ── No active delivery ── */
-        <div style={{ margin: "0 16px 20px", background: CARD, borderRadius: 20,
-          border: `1.5px dashed ${INK_HAIR}`, padding: "32px 24px", textAlign: "center" }}>
+        <div style={{
+          margin: "0 16px 20px", background: CARD, borderRadius: 20,
+          border: `1.5px dashed ${INK_HAIR}`, padding: "32px 24px", textAlign: "center"
+        }}>
           <div style={{ fontSize: "3rem", marginBottom: 12 }}>{isOnline ? "⏳" : "💤"}</div>
           <h3 style={{ fontSize: "1rem", fontWeight: 700, color: INK, marginBottom: 6 }}>
             {isOnline ? "Waiting for a delivery..." : "You're offline"}
@@ -359,10 +391,14 @@ export default function DriverHome() {
 
       {/* ─── How It Works (shown when no delivery and online) ─── */}
       {!activeDelivery && isOnline && (
-        <div style={{ margin: "0 16px 20px", background: CARD, borderRadius: 18,
-          border: `1px solid ${INK_HAIR}`, padding: "20px" }}>
-          <h3 style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
-            letterSpacing: "0.12em", color: INK_MUTED, marginBottom: 14 }}>
+        <div style={{
+          margin: "0 16px 20px", background: CARD, borderRadius: 18,
+          border: `1px solid ${INK_HAIR}`, padding: "20px"
+        }}>
+          <h3 style={{
+            fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
+            letterSpacing: "0.12em", color: INK_MUTED, marginBottom: 14
+          }}>
             <Truck size={12} style={{ marginRight: 6 }} />
             How Deliveries Work
           </h3>
@@ -375,9 +411,11 @@ export default function DriverHome() {
               { step: "5", title: "Mark Delivered", desc: "Tap 'Mark Delivered' after handing over the order. You're back online!", emoji: "✅" },
             ].map(s => (
               <div key={s.step} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: `${TC}08`,
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, background: `${TC}08`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "1rem", flexShrink: 0 }}>{s.emoji}</div>
+                  fontSize: "1rem", flexShrink: 0
+                }}>{s.emoji}</div>
                 <div>
                   <div style={{ fontSize: "0.82rem", fontWeight: 700, color: INK }}>{s.title}</div>
                   <div style={{ fontSize: "0.74rem", color: INK_MUTED, marginTop: 1 }}>{s.desc}</div>
@@ -389,13 +427,15 @@ export default function DriverHome() {
       )}
 
       {/* Live Map */}
-      <div style={{ margin: "0 16px", borderRadius: 20, overflow: "hidden",
-        border: `1px solid ${INK_HAIR}`, height: 280, boxShadow: "0 4px 20px rgba(28,18,8,0.08)" }}>
+      <div style={{
+        margin: "0 16px", borderRadius: 20, overflow: "hidden",
+        border: `1px solid ${INK_HAIR}`, height: 280, boxShadow: "0 4px 20px rgba(28,18,8,0.08)"
+      }}>
         <MapContainer center={mapCenter} zoom={14} style={{ height: "100%", width: "100%" }}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; OpenStreetMap contributors' />
           <MapFlyTo pos={locPos || (pickPos ? pickPos : undefined)} />
-          {locPos  && <Marker position={locPos} icon={driverIcon}><Popup>📍 You are here</Popup></Marker>}
+          {locPos && <Marker position={locPos} icon={driverIcon}><Popup>📍 You are here</Popup></Marker>}
           {pickPos && <Marker position={pickPos} icon={restIcon}><Popup>🍽 {activeDelivery?.restaurantName || "Restaurant"}</Popup></Marker>}
           {custPos && <Marker position={custPos} icon={homeIcon}><Popup>🏠 Customer</Popup></Marker>}
           {locPos && pickPos && !isPickedUp && (
@@ -408,15 +448,19 @@ export default function DriverHome() {
       </div>
 
       {currentLocation && (
-        <div style={{ margin: "12px 16px 0", padding: "10px 14px", background: CARD,
+        <div style={{
+          margin: "12px 16px 0", padding: "10px 14px", background: CARD,
           borderRadius: 10, border: `1px solid ${INK_HAIR}`,
-          display: "flex", alignItems: "center", gap: 8 }}>
+          display: "flex", alignItems: "center", gap: 8
+        }}>
           <Navigation size={13} style={{ color: SUCCESS }} />
           <span style={{ fontSize: "0.76rem", color: INK_MUTED }}>
             {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
           </span>
-          <span style={{ marginLeft: "auto", fontSize: "0.68rem", fontWeight: 800,
-            color: SUCCESS, textTransform: "uppercase", letterSpacing: "0.08em" }}>LIVE</span>
+          <span style={{
+            marginLeft: "auto", fontSize: "0.68rem", fontWeight: 800,
+            color: SUCCESS, textTransform: "uppercase", letterSpacing: "0.08em"
+          }}>LIVE</span>
         </div>
       )}
 
@@ -430,30 +474,44 @@ export default function DriverHome() {
 
 function StatCard({ label, value, emoji, highlight, color }) {
   return (
-    <div style={{ background: highlight ? `${color}10` : CARD, borderRadius: 16, padding: "16px 18px",
-      border: `1px solid ${highlight ? color + "25" : INK_HAIR}` }}>
+    <div style={{
+      background: highlight ? `${color}10` : CARD, borderRadius: 16, padding: "16px 18px",
+      border: `1px solid ${highlight ? color + "25" : INK_HAIR}`
+    }}>
       <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>{emoji}</div>
-      <div style={{ fontFamily: "var(--font-display)", fontSize: "1.6rem", fontWeight: 500,
-        color: highlight ? color : INK }}>{value}</div>
-      <div style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
-        letterSpacing: "0.1em", color: INK_MUTED, marginTop: 3 }}>{label}</div>
+      <div style={{
+        fontFamily: "var(--font-display)", fontSize: "1.6rem", fontWeight: 500,
+        color: highlight ? color : INK
+      }}>{value}</div>
+      <div style={{
+        fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
+        letterSpacing: "0.1em", color: INK_MUTED, marginTop: 3
+      }}>{label}</div>
     </div>
   );
 }
 
 function RouteStop({ icon, label, name, addr, color, done, active }) {
   return (
-    <div style={{ display: "flex", gap: 12, alignItems: "flex-start",
-      opacity: done && !active ? 0.5 : 1 }}>
-      <div style={{ width: 40, height: 40, borderRadius: "50%", background: `${color}10`,
+    <div style={{
+      display: "flex", gap: 12, alignItems: "flex-start",
+      opacity: done && !active ? 0.5 : 1
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: "50%", background: `${color}10`,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0, fontSize: "1.1rem",
-        border: active ? `2px solid ${color}` : "none" }}>{icon}</div>
+        border: active ? `2px solid ${color}` : "none"
+      }}>{icon}</div>
       <div>
-        <div style={{ fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase",
-          letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 2 }}>{label}</div>
-        <div style={{ fontSize: "0.9rem", fontWeight: 700, color: INK,
-          textDecoration: done && !active ? "line-through" : "none" }}>{name}</div>
+        <div style={{
+          fontSize: "0.65rem", fontWeight: 700, textTransform: "uppercase",
+          letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 2
+        }}>{label}</div>
+        <div style={{
+          fontSize: "0.9rem", fontWeight: 700, color: INK,
+          textDecoration: done && !active ? "line-through" : "none"
+        }}>{name}</div>
         <div style={{ fontSize: "0.76rem", color: INK_MUTED, marginTop: 2 }}>{addr}</div>
       </div>
     </div>
@@ -471,8 +529,8 @@ function RegisterScreen({ user, onSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!form.name.trim())        return toast.error("Name is required");
-    if (!form.phone.trim())       return toast.error("Phone number is required");
+    if (!form.name.trim()) return toast.error("Name is required");
+    if (!form.phone.trim()) return toast.error("Phone number is required");
     if (!form.vehicleNumber.trim()) return toast.error("Vehicle number is required");
 
     setLoading(true);
@@ -488,10 +546,12 @@ function RegisterScreen({ user, onSuccess }) {
 
   const s = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
 
-  const iStyle = { width: "100%", padding: "13px 15px", background: FIELD, borderRadius: 12,
+  const iStyle = {
+    width: "100%", padding: "13px 15px", background: FIELD, borderRadius: 12,
     border: "1.5px solid transparent", fontSize: "0.95rem", color: INK,
     fontFamily: "var(--font-sans)", outline: "none", boxSizing: "border-box",
-    transition: "border-color 0.2s" };
+    transition: "border-color 0.2s"
+  };
 
   return (
     <div style={{ padding: "32px 20px" }}>
@@ -508,51 +568,62 @@ function RegisterScreen({ user, onSuccess }) {
       <div style={{ background: CARD, borderRadius: 20, padding: "24px", border: `1px solid ${INK_HAIR}` }}>
         {/* Vehicle type */}
         <div style={{ marginBottom: 18 }}>
-          <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
-            letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 8 }}>Vehicle Type</label>
+          <label style={{
+            display: "block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
+            letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 8
+          }}>Vehicle Type</label>
           <div style={{ display: "flex", gap: 8 }}>
-            {[["MOTORCYCLE","🏍 Moto"],["BICYCLE","🚲 Bike"],["CAR","🚗 Car"]].map(([v, label]) => (
+            {[["MOTORCYCLE", "🏍 Moto"], ["BICYCLE", "🚲 Bike"], ["CAR", "🚗 Car"]].map(([v, label]) => (
               <button key={v} onClick={() => setForm(p => ({ ...p, vehicleType: v }))} style={{
                 flex: 1, padding: "10px 4px", borderRadius: 10, border: "1.5px solid",
                 borderColor: form.vehicleType === v ? TC : INK_HAIR,
                 background: form.vehicleType === v ? `${TC}08` : "transparent",
                 color: form.vehicleType === v ? TC : INK_MUTED,
-                fontSize: "0.8rem", fontWeight: 600, cursor: "pointer" }}>{label}</button>
+                fontSize: "0.8rem", fontWeight: 600, cursor: "pointer"
+              }}>{label}</button>
             ))}
           </div>
         </div>
 
         {/* Name */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
-            letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 7 }}>Full Name *</label>
+          <label style={{
+            display: "block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
+            letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 7
+          }}>Full Name *</label>
           <input value={form.name} onChange={s("name")} placeholder="Your full name"
             style={iStyle} onFocus={e => e.target.style.borderColor = TC} onBlur={e => e.target.style.borderColor = "transparent"} />
         </div>
 
         {/* Phone */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
-            letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 7 }}>Phone Number *</label>
+          <label style={{
+            display: "block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
+            letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 7
+          }}>Phone Number *</label>
           <input value={form.phone} onChange={s("phone")} placeholder="+91 98765 43210"
             style={iStyle} onFocus={e => e.target.style.borderColor = TC} onBlur={e => e.target.style.borderColor = "transparent"} />
         </div>
 
         {/* Vehicle number */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
-            letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 7 }}>Vehicle Number *</label>
+          <label style={{
+            display: "block", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase",
+            letterSpacing: "0.1em", color: INK_MUTED, marginBottom: 7
+          }}>Vehicle Number *</label>
           <input value={form.vehicleNumber} onChange={s("vehicleNumber")} placeholder="e.g. DL 01 AB 1234"
             style={iStyle} onFocus={e => e.target.style.borderColor = TC} onBlur={e => e.target.style.borderColor = "transparent"} />
         </div>
 
-        <button onClick={handleRegister} disabled={loading} style={{ width: "100%", marginTop: 8,
+        <button onClick={handleRegister} disabled={loading} style={{
+          width: "100%", marginTop: 8,
           padding: "15px", borderRadius: 14, border: "none",
           background: `linear-gradient(135deg, ${TC_SOFT}, ${TC})`, color: "#FFF5E6",
           fontWeight: 700, fontSize: "1rem", cursor: loading ? "not-allowed" : "pointer",
           fontFamily: "var(--font-sans)", display: "flex", alignItems: "center",
           justifyContent: "center", gap: 10, boxShadow: `0 6px 20px ${TC}40`,
-          opacity: loading ? 0.7 : 1 }}>
+          opacity: loading ? 0.7 : 1
+        }}>
           {loading && <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />}
           Register as Driver
         </button>

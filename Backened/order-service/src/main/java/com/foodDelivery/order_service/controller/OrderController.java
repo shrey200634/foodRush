@@ -28,8 +28,9 @@ public class OrderController {
             @Valid @RequestBody PlaceOrderRequest request) {
 
         String userId = extractUserId(token);
+        String email = extractEmail(token);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(orderService.placeOrder(userId, request));
+                .body(orderService.placeOrder(userId, email, request));
     }
 
 
@@ -84,5 +85,9 @@ public class OrderController {
 
     private String extractUserId(String token) {
         return jwtService.extractUserId(token.replace("Bearer ", ""));
+    }
+
+    private String extractEmail(String token) {
+        return jwtService.extractEmail(token.replace("Bearer ", ""));
     }
 }

@@ -62,7 +62,7 @@ export default function OwnerOverview() {
         <div style={{ textAlign:"center", maxWidth:480, color:INK }}>
           <div style={{ fontSize:"5rem", marginBottom:16 }}>🍽</div>
           <h1 style={{ fontFamily:"var(--font-display)", fontSize:"2.2rem", marginBottom:14, color:INK }}>
-            Welcome, {user?.name?.split(" ")[0] || "Chef"}!
+            Welcome, {user?.name ? user.name.split(" ")[0] : "Chef"}!
           </h1>
           <p style={{ color:INK_MUTED, lineHeight:1.8, marginBottom:36, fontSize:"1rem" }}>
             You don't have a restaurant registered yet.<br />
@@ -102,7 +102,7 @@ export default function OwnerOverview() {
             {r?.name || "My Restaurant"}
           </h1>
           <p style={{ fontSize:"0.88rem", color:INK_MUTED, marginTop:8 }}>
-            {r?.cuisineType} · {r?.address?.split(",")[0] || "—"}
+            {r?.cuisineType} · {r?.address?.split(",")?.[0] || "—"}
           </p>
         </div>
         <button onClick={handleToggleOpen} style={{
@@ -171,7 +171,7 @@ export default function OwnerOverview() {
                   border:`1px solid ${["PLACED","CREATED"].includes(order.status) ? TC + "30" : INK_HAIR}` }}>
                   <div>
                     <div style={{ fontSize:"0.88rem", fontWeight:700, color:INK }}>
-                      #{order.orderId?.slice(-6).toUpperCase()}
+                      #{order.orderId?.slice(-6)?.toUpperCase()}
                       {["PLACED","CREATED"].includes(order.status) && (
                         <span style={{ marginLeft:8, fontSize:"0.62rem", background:`${TC}18`,
                           color:TC, padding:"2px 7px", borderRadius:4,

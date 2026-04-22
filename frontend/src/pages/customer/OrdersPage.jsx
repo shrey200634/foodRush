@@ -15,12 +15,13 @@ const TERRACOTTA_DEEP = "#8A2F18";
 const VEG = "#4A7C2B";
 
 const STATUS_META = {
-  PLACED:           { label: "Order placed",      color: "#1D4ED8", bg: "#EFF6FF", icon: Clock },
-  ACCEPTED:         { label: "Accepted",           color: "#6D28D9", bg: "#F5F3FF", icon: CheckCircle },
+  CREATED:          { label: "Order placed",      color: "#1D4ED8", bg: "#EFF6FF", icon: Clock },
+  CONFIRMED:        { label: "Accepted",           color: "#6D28D9", bg: "#F5F3FF", icon: CheckCircle },
   PREPARING:        { label: "Preparing",          color: "#D97706", bg: "#FFFBEB", icon: Clock },
   READY:            { label: "Ready for pickup",   color: "#059669", bg: "#ECFDF5", icon: CheckCircle },
-  OUT_FOR_DELIVERY: { label: "On the way",         color: TERRACOTTA, bg: `${TERRACOTTA}12`, icon: Bike },
+  PICKED_UP:        { label: "On the way",         color: TERRACOTTA, bg: `${TERRACOTTA}12`, icon: Bike },
   DELIVERED:        { label: "Delivered",          color: VEG, bg: `${VEG}12`, icon: CheckCircle },
+  COMPLETED:        { label: "Completed",          color: VEG, bg: `${VEG}12`, icon: CheckCircle },
   CANCELLED:        { label: "Cancelled",          color: "#DC2626", bg: "#FEF2F2", icon: XCircle },
 };
 
@@ -53,10 +54,10 @@ export default function OrdersPage() {
   };
 
   const active = orders.filter((o) =>
-    !["DELIVERED", "CANCELLED"].includes(o.status)
+    !["DELIVERED", "COMPLETED", "CANCELLED"].includes(o.status)
   );
   const past = orders.filter((o) =>
-    ["DELIVERED", "CANCELLED"].includes(o.status)
+    ["DELIVERED", "COMPLETED", "CANCELLED"].includes(o.status)
   );
 
   if (loading && orders.length === 0) {

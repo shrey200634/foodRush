@@ -63,7 +63,15 @@ public class DriverMatchingService {
 
         // Second attempt: wider radius
         log.info("No driver found within {}km, retrying with {}km radius", matchingRadiusKm, retryRadiusKm);
-        return searchInRadius(restaurantLat, restaurantLng, retryRadiusKm);
+        Optional<Driver> retryDriver = searchInRadius(restaurantLat, restaurantLng, retryRadiusKm);
+        
+        if (retryDriver.isPresent()) {
+            return retryDriver;
+        }
+        
+        // Third attempt: For testing environment, if no driver nearby, just assign ANY online driver
+        log.info("No driver within retry radius. Falling back to DB to find ANY online driver (testing mode)");
+        return fallbackToDatabase();
     }
 
     private Optional<Driver> searchInRadius(double lat, double lng, double radiusKm) {

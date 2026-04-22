@@ -116,7 +116,7 @@ export default function HomePage() {
             fontStyle:"italic",
             background:`linear-gradient(135deg,${TC_SOFT} 0%,${TC} 50%,${TC_DEEP} 100%)`,
             WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
-          }}>{user?.name?.split(" ")[0]||"friend"}</span>
+          }}>{user?.name?.split(" ")?.[0]||"friend"}</span>
         </h1>
 
         {/* Rotating catchy prompt */}
@@ -458,7 +458,7 @@ function RestaurantCard({ restaurant:r, index, onClick }) {
           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.name}</h3>
         <p style={{ fontSize:"0.8rem", color:INK_MUTED, marginBottom:14,
           overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-          {r.cuisineType} · {r.address?.split(",")[0]||"Nearby"}
+          {r.cuisineType} · {r.address?.split(",")?.[0]||"Nearby"}
         </p>
         <div style={{ display:"flex", alignItems:"center", gap:0,
           paddingTop:12, borderTop:`1px solid ${INK_HAIR}`,

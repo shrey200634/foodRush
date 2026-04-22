@@ -3,6 +3,8 @@ import api from "../api/axios";
 
 export const useWalletStore = create((set) => ({
   balance: null,
+  lockedBalance: null,
+  totalBalance: null,
   transactions: [],
   loading: false,
   error: null,
@@ -15,6 +17,8 @@ export const useWalletStore = create((set) => ({
       const b = res.data;
       set({
         balance: b?.availableBalance ?? b?.balance ?? 0,
+        lockedBalance: b?.lockedBalance ?? 0,
+        totalBalance: b?.totalBalance ?? 0,
         loading: false,
       });
     } catch {
@@ -22,9 +26,14 @@ export const useWalletStore = create((set) => ({
       try {
         const res = await api.post("/wallet/create");
         const b = res.data;
-        set({ balance: b?.availableBalance ?? b?.balance ?? 0, loading: false });
+        set({
+          balance: b?.availableBalance ?? b?.balance ?? 0,
+          lockedBalance: b?.lockedBalance ?? 0,
+          totalBalance: b?.totalBalance ?? 0,
+          loading: false,
+        });
       } catch {
-        set({ balance: 0, loading: false, error: "Could not load balance" });
+        set({ balance: 0, lockedBalance: 0, totalBalance: 0, loading: false, error: "Could not load balance" });
       }
     }
   },
@@ -32,8 +41,54 @@ export const useWalletStore = create((set) => ({
   addFunds: async (amount) => {
     const res = await api.post("/wallet/add-funds", { amount: parseFloat(amount) });
     const b = res.data;
-    if (b?.availableBalance !== undefined) set({ balance: b.availableBalance });
-    else if (b?.balance !== undefined) set({ balance: b.balance });
+    if (b?.availableBalance !== undefined) {
+      set({
+        balance: b.availableBalance,
+        lockedBalance: b.lockedBalance ?? 0,
+        totalBalance: b.totalBalance ?? 0,
+      });
+    } else if (b?.balance !== undefined) {
+      set({ balance: b.balance });
+    }
+    return res.data;
+  },
+
+  /**
+   * Lock funds for an order (SAGA Step 1).
+   * Called from CheckoutPage before placing the order.
+   * Backend: POST /wallet/lock { orderId, amount }
+   */
+  lockFunds: async (orderId, amount) => {
+    const res = await api.post("/wallet/lock", {
+      orderId: String(orderId),
+      amount: parseFloat(amount),
+    });
+    const b = res.data;
+    if (b?.availableBalance !== undefined) {
+      set({
+        balance: b.availableBalance,
+        lockedBalance: b.lockedBalance ?? 0,
+        totalBalance: b.totalBalance ?? 0,
+      });
+    }
+    return res.data;
+  },
+
+  /**
+   * Release locked funds (SAGA Compensate).
+   * Called if order placement fails after lock.
+   * Backend: POST /wallet/release/{orderId}
+   */
+  releaseFunds: async (orderId) => {
+    const res = await api.post(`/wallet/release/${orderId}`);
+    const wallet = res.data?.wallet || res.data;
+    if (wallet?.availableBalance !== undefined) {
+      set({
+        balance: wallet.availableBalance,
+        lockedBalance: wallet.lockedBalance ?? 0,
+        totalBalance: wallet.totalBalance ?? 0,
+      });
+    }
     return res.data;
   },
 

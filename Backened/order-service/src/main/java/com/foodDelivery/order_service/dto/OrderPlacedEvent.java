@@ -16,6 +16,8 @@ public class OrderPlacedEvent {
 
     private String orderId;
     private String userId;
+    private String userEmail;
+    private String userName;
     private String restaurantId;
     private String restaurantName;
     private BigDecimal totalAmount;

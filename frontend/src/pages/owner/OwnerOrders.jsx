@@ -184,7 +184,7 @@ export default function OwnerOrders() {
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
                           <span style={{ fontFamily: "var(--font-display)", fontSize: "1.3rem", color: INK }}>
-                            Order #{order.orderId?.slice(-6).toUpperCase()}
+                            Order #{order.orderId?.slice(-6)?.toUpperCase()}
                           </span>
                           {isNew && (
                             <span style={{ padding: "2px 8px", borderRadius: 4, background: `${TC}18`,
@@ -283,7 +283,7 @@ export default function OwnerOrders() {
                     padding: "16px 20px", border: `1px solid ${INK_HAIR}` }}>
                     <div>
                       <div style={{ fontSize: "0.9rem", fontWeight: 700, color: INK }}>
-                        #{order.orderId?.slice(-6).toUpperCase()}
+                        #{order.orderId?.slice(-6)?.toUpperCase()}
                       </div>
                       <div style={{ fontSize: "0.75rem", color: INK_MUTED, marginTop: 3 }}>
                         {order.items?.length || 0} items ·{" "}

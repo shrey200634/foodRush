@@ -26,7 +26,7 @@ public class NotificationEventListener {
             return;
         }
         Map<String, Object> vars = new HashMap<>();
-        vars.put("userName", event.getUserName());
+        vars.put("userName", event.getUserName() != null ? event.getUserName() : "Customer");
         vars.put("orderId", event.getOrderId());
         vars.put("restaurantName", event.getRestaurantName());
         vars.put("totalAmount", event.getTotalAmount());
@@ -40,15 +40,15 @@ public class NotificationEventListener {
     }
 
     // NOTE: change topic name to match what your payment-service publishes
-    @KafkaListener(topics = "payment-success", groupId = "notification-service-group")
+    @KafkaListener(topics = "payment-completed", groupId = "notification-service-group")
     public void handlePaymentSuccess(NotificationEvent event) {
-        log.info("Received payment-success event: {}", event.getOrderId());
+        log.info("Received payment-completed event: {}", event.getOrderId());
         if (event.getUserEmail() == null) {
             log.warn("No userEmail in event, skipping");
             return;
         }
         Map<String, Object> vars = new HashMap<>();
-        vars.put("userName", event.getUserName());
+        vars.put("userName", event.getUserName() != null ? event.getUserName() : "Customer");
         vars.put("orderId", event.getOrderId());
         vars.put("totalAmount", event.getTotalAmount());
         emailService.sendHtmlEmail(
