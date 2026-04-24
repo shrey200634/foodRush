@@ -31,6 +31,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/{restaurantId}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/*/menu/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/restaurants/*/reviews").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
+
 
                         // Everything else requires authentication
                         .anyRequest().authenticated()

@@ -2,6 +2,8 @@ server:
   port: 8080
 
 spring:
+  application:
+    name: api-gateway
   cloud:
     gateway:
       discovery:
@@ -104,9 +106,11 @@ management:
   endpoint:
     prometheus:
       enabled: true
-    health:
-      show-details: always
+  health:
+    show-details: always
   metrics:
+    tags:
+      application: api-gateway
     export:
       prometheus:
         enabled: true

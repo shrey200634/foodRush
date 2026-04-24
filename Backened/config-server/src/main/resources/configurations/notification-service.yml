@@ -2,6 +2,8 @@ server:
   port: 8086
 
 spring:
+  application:
+    name: notification-service
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/notification_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
@@ -51,7 +53,11 @@ management:
   endpoint:
     prometheus:
       enabled: true
+  health:
+    show-details: always
   metrics:
+    tags:
+      application: notification-service
     export:
       prometheus:
         enabled: true

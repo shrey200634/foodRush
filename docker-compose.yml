@@ -7,6 +7,7 @@ networks:
 volumes:
   mysql-data:
   redis-data:
+  grafana-data:
 
 services:
 
@@ -414,6 +415,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:
       - prometheus
+    volumes:
+      - grafana-data:/var/lib/grafana  
     networks:
       - foodrush-net
 
