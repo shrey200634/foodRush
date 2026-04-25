@@ -1,104 +1,137 @@
-# 🍔 FoodRush — Ultimate Enterprise Food Delivery Platform
+# 🍔 FoodRush
 
-> **Event-Driven Microservices Architecture** | Java 21 + Spring Boot 3 + Kafka + Redis + MySQL + React 18
-> This is the complete, definitive technical documentation for the FoodRush project.
+> **Production-Grade Event-Driven Microservices Platform**
+> Java 21 · Spring Boot 3 · Kafka · Redis · MySQL · React 18 · Prometheus · Grafana
 
-FoodRush handles the entire lifecycle of a massively scaled modern food delivery application. It is engineered to mimic high-throughput production systems, relying heavily on fully decoupled microservices, distributed SAGA choreography, and real-time WebSockets to deliver an unparalleled smooth experience for Users, Restaurants, and Drivers.
+FoodRush is a fully containerized, cloud-ready food delivery platform built with a strict microservices architecture. Every service is independently deployable, observable, and scalable — backed by Kafka event choreography, distributed caching, real-time WebSockets, and a full observability stack.
 
 ---
 
-## 🌟 1. System Highlights & Core Features
+## Table of Contents
 
-| Feature | Description | Engine / Technology |
+1. [System Highlights](#system-highlights)
+2. [High-Level Architecture](#high-level-architecture)
+3. [Services Overview](#services-overview)
+4. [Database Design](#database-design)
+5. [Event-Driven Workflows](#event-driven-workflows)
+6. [Observability Stack](#observability-stack)
+7. [Frontend Architecture](#frontend-architecture)
+8. [API Reference](#api-reference)
+9. [Kafka Topics](#kafka-topics)
+10. [Security Model](#security-model)
+11. [Quick Start — Docker](#quick-start--docker-recommended)
+12. [Manual Setup — Local Dev](#manual-setup--local-dev)
+
+---
+
+## System Highlights
+
+| Feature | Description | Technology |
 |---|---|---|
-| 🧠 **AI Smart Order Prediction** | Uses historical order data, time of day, and Gemini AI predictions to suggest the perfect meal automatically. | Google Gemini API + Core Backend |
-| 👥 **Group Orders with Live Split** | Users can share a "Group Cart Link". Multiple clients connect via WSS and add items. The cart dynamically splits the final bill. | WebSockets (STOMP) + Redis (Pub/Sub) |
-| ⚡ **Dynamic Surge Pricing** | Recalculates delivery fees every 30 seconds based on live zone order velocity versus available driver density. | Redis Counters + Kafka Streams |
-| 📍 **Sub-Second Driver Tracking** | Drivers pulse GPS coordinates which are fanned out to active consumer clients instantly, skipping the database layer entirely. | WebSockets + Redis Geospatial |
-| 🔒 **High-Performance Gateways** | Stops DDoS and spam via distributed IP rate limiting at the perimeter, alongside stateless authentication token parsing. | Spring Cloud Gateway + Redis Lua Scripts|
+| 🧠 **AI Order Prediction** | Suggests meals based on history, time of day, and AI inference | Google Gemini API |
+| 👥 **Group Orders & Live Bill Split** | Shared cart link; multiple users add items via WebSocket, auto-splits the bill | WebSockets (STOMP) + Redis Pub/Sub |
+| ⚡ **Dynamic Surge Pricing** | Delivery fee recalculated every 30s based on zone order velocity vs. driver density | Redis Counters + Kafka Streams |
+| 📍 **Sub-Second Driver Tracking** | GPS coordinates fanned out to consumers in real-time, bypassing the DB entirely | WebSockets + Redis Geospatial |
+| 🔒 **Distributed Rate Limiting** | DDoS & spam protection via IP-level throttling at the gateway perimeter | Spring Cloud Gateway + Redis Lua |
+| 📊 **Full Observability** | JVM metrics, CPU, heap, HTTP latency per service — all live in Grafana | Prometheus + Grafana |
+| 💳 **SAGA Payment Choreography** | No central orchestrator; distributed transactions via Kafka events with compensating rollbacks | Apache Kafka |
 
 ---
 
-## 🏗️ 2. High-Level Systems Architecture (HLD)
+## High-Level Architecture
 
-FoodRush implements a strict **Database-per-Service** design. Synchronous blocking calls (REST) are only used for client-facing queries. All mutating system states trigger asynchronous Domain Events over **Apache Kafka**.
-
-### Architecture Diagram
+FoodRush enforces **Database-per-Service** isolation. REST is used only for client-facing reads. All state mutations propagate as Domain Events over Kafka.
 
 ```mermaid
 graph TD
-    Client[Client App: React/Zustand] -->|HTTPS / WSS| APIGW[API Gateway :8080\nAuth + Rate Limiter]
-    
-    subgraph Infrastructure
-        CONFIG(Config Server :8888)
-        EUREKA(Eureka Discovery :8761)
-    end
-    
-    CONFIG -.->|Config Sync| APIGW
-    EUREKA -.->|Service Registry| APIGW
-    
-    subgraph Spring Boot Microservices
-        APIGW -->|REST| USR(User Service :8081)
-        APIGW -->|REST| RST(Restaurant Svc :8082)
-        APIGW -->|REST/WSS| ORD(Order Svc :8083)
-        APIGW -->|REST/WSS| DEL(Delivery Svc :8084)
-        APIGW -->|REST| PAY(Payment Svc :8085)
-    end
-    
-    Infrastructure -.->|Registry & Config| USR
-    
-    subgraph Persistence & Caching
-        USR -->|JDBC| MySQL1[(User DB)]
-        RST -->|JDBC| MySQL2[(Restaurant DB)]
-        ORD -->|JDBC| MySQL3[(Order DB)]
-        DEL -->|JDBC| MySQL4[(Delivery DB)]
-        PAY -->|JDBC| MySQL5[(Payment DB)]
-        
-        ORD -->|Jedis Pub/Sub| Red1[(Redis Cart)]
-        DEL -->|Jedis| Red2[(Redis Configs)]
+    Client[React Client :3000] -->|HTTPS / WSS| GW[API Gateway :8080\nJWT Auth · Rate Limiter]
+
+    subgraph Spring Cloud Core
+        CS(Config Server :8888)
+        DS(Discovery Server :8761)
     end
 
-    subgraph Kafka Event Backbone
-        ORD -->|order-placed| KAFKA(Apache Kafka)
-        DEL -->|delivery-events| KAFKA
-        RST -->|menu-updates| KAFKA
-        PAY -->|payment-events| KAFKA
-        
-        KAFKA -->|consume| NOTIF[Notification Svc :8086]
+    CS -.->|Config Sync| GW
+    DS -.->|Service Registry| GW
+
+    subgraph Microservices
+        GW -->|REST| US(User Service :8081)
+        GW -->|REST| RS(Restaurant Service :8082)
+        GW -->|REST + WSS| OS(Order Service :8083)
+        GW -->|REST + WSS| DL(Delivery Service :8084)
+        GW -->|REST| PS(Payment Service :8085)
+        NS(Notification Service :8086)
     end
-    NOTIF -->|Email via SMTP| SMTP[Gmail API]
+
+    subgraph Persistence
+        US --> DB1[(User DB)]
+        RS --> DB2[(Restaurant DB)]
+        OS --> DB3[(Order DB)]
+        DL --> DB4[(Delivery DB)]
+        PS --> DB5[(Payment DB)]
+        OS --> RC[(Redis Cache)]
+        DL --> RC
+    end
+
+    subgraph Kafka Event Bus
+        OS -->|order-placed| KF(Apache Kafka)
+        PS -->|payment-events| KF
+        RS -->|order-accepted| KF
+        DL -->|delivery-events| KF
+        KF --> NS
+    end
+
+    NS -->|SMTP| MAIL[Gmail]
+
+    subgraph Observability
+        US & RS & OS & DL & PS & NS & GW -->|/actuator/prometheus| PROM(Prometheus :9090)
+        PROM --> GRF(Grafana :3001\nSpring Boot Dashboard)
+    end
 ```
 
 ---
 
-## 🗄️ 3. Database Schemas (Entity Relationship)
+## Services Overview
 
-Since every microservice maintains its own discrete database, foreign keys across domains do not exist. Instead, services reference each other via UUIDs/Long IDs.
+| Service | Port | Responsibility |
+|---|---|---|
+| **api-gateway** | 8080 | Single entry point. JWT validation, rate limiting, routing |
+| **config-server** | 8888 | Centralized config for all services via Spring Cloud Config |
+| **discovery-server** | 8761 | Eureka service registry — enables dynamic load balancing |
+| **user-service** | 8081 | Registration, OTP, login, JWT issuance, profile, addresses |
+| **restaurant-service** | 8082 | Restaurant CRUD, menu management, geospatial nearby search |
+| **order-service** | 8083 | Cart management (Redis), order placement, SAGA trigger |
+| **delivery-service** | 8084 | Driver management, GPS tracking, delivery lifecycle |
+| **payment-service** | 8085 | Wallet, fund locking, SAGA payment processing |
+| **notification-service** | 8086 | Kafka consumer — sends emails via SMTP on key events |
+| **prometheus** | 9090 | Scrapes `/actuator/prometheus` from all services every 5s |
+| **grafana** | 3001 | Dashboards — JVM heap, CPU, uptime, HTTP metrics per service |
+
+---
+
+## Database Design
+
+Each service owns its schema. Cross-domain references use shared IDs (no cross-DB foreign keys).
 
 ```mermaid
 erDiagram
-    %% User Service
-    USER ||--o{ ADDRESS : "has"
+    USER ||--o{ ADDRESS : has
     USER {
         Long id PK
         String email
-        String passwordHash
         String phone
         String role
     }
     ADDRESS {
         Long id PK
         Long userId FK
-        String streetAddress
         String city
         Float lat
         Float lng
     }
 
-    %% Restaurant Service
-    RESTAURANT ||--o{ MENU_ITEM : "owns"
-    RESTAURANT ||--o{ CATEGORY : "defines"
-    RESTAURANT ||--o{ REVIEW : "receives"
+    RESTAURANT ||--o{ MENU_ITEM : owns
+    RESTAURANT ||--o{ CATEGORY : defines
     RESTAURANT {
         Long id PK
         String name
@@ -117,24 +150,22 @@ erDiagram
         Boolean inStock
     }
 
-    %% Order Service (Uses RESTAURANT ID from above indirectly)
-    ORDER ||--|{ ORDER_ITEM : "contains"
+    ORDER ||--|{ ORDER_ITEM : contains
     ORDER {
         Long id PK
-        Long userId
-        Long restaurantId
+        Long userId FK
+        Long restaurantId FK
         String status
         Float totalAmount
     }
     ORDER_ITEM {
         Long id PK
         Long orderId FK
-        Long menuItemId
+        Long menuItemId FK
         Integer quantity
     }
 
-    %% Delivery Service
-    DRIVER ||--o{ DELIVERY : "assigned_to"
+    DRIVER ||--o{ DELIVERY : assigned_to
     DRIVER {
         Long id PK
         String name
@@ -143,17 +174,16 @@ erDiagram
     }
     DELIVERY {
         Long id PK
-        Long orderId
+        Long orderId FK
         Long driverId FK
         String status
     }
 
-    %% Payment Service
-    WALLET ||--o{ TRANSACTION : "logs"
-    WALLET ||--o{ FUND_LOCK : "holds_funds"
+    WALLET ||--o{ TRANSACTION : logs
+    WALLET ||--o{ FUND_LOCK : holds
     WALLET {
         Long id PK
-        Long userId
+        Long userId FK
         Float balance
     }
     TRANSACTION {
@@ -162,14 +192,21 @@ erDiagram
         Float amount
         String type
     }
+    FUND_LOCK {
+        Long id PK
+        Long walletId FK
+        Float amount
+        String status
+    }
 ```
 
 ---
 
-## ⚙️ 4. System Distributed Workflows
+## Event-Driven Workflows
 
-### Checkout & Payment SAGA Choreography
-No central orchestrator exists. Transactions are managed entirely by consuming and producing Kafka events. This protects against locking up the database during heavy usage.
+### Checkout & Payment SAGA
+
+No central orchestrator. Distributed transactions are managed entirely through Kafka event choreography with compensating rollbacks on failure.
 
 ```mermaid
 sequenceDiagram
@@ -177,136 +214,319 @@ sequenceDiagram
     participant O as Order Service
     participant P as Payment Service
     participant R as Restaurant Service
-    participant K as Kafka Broker
+    participant K as Kafka
 
-    C->>O: POST /api/v1/orders/place
-    O->>O: Save Order [Status: PENDING]
-    O->>K: Pub: order-placed {orderId, amount, userId}
-    
-    K->>P: Sub: order-placed
-    P->>P: Check Wallet Balance & Create FundLock
-    alt Balance Available
-        P->>K: Pub: payment-completed {orderId}
-        K->>R: Sub: payment-completed
+    C->>O: POST /orders/place
+    O->>O: Save Order [PENDING]
+    O->>K: Publish: order-placed
+
+    K->>P: Consume: order-placed
+    P->>P: Check Wallet & Create FundLock
+
+    alt Sufficient Balance
+        P->>K: Publish: payment-completed
+        K->>R: Consume: payment-completed
         R->>R: Notify Chef Dashboard
-        R->>K: Pub: order-accepted
-        K->>O: Sub: order-accepted -> Update Status
-        O-->>C: WebSocket Update (ACCEPTED)
+        R->>K: Publish: order-accepted
+        K->>O: Consume: order-accepted → CONFIRMED
+        O-->>C: WebSocket: ACCEPTED
     else Insufficient Balance
-        P->>K: Pub: payment-failed {orderId}
-        K->>O: Sub: payment-failed -> Cancel Order
-        O-->>C: Cancel Alert
+        P->>K: Publish: payment-failed
+        K->>O: Consume: payment-failed → CANCELLED
+        O-->>C: WebSocket: CANCELLED
     end
 ```
 
 ---
 
-## 💻 5. Frontend Architecture
-The Frontend is built for maximum speed and component reuse, powered by **React 18** and **Vite**.
+## Observability Stack
 
-- **Styling**: `TailwindCSS v4` completely removes custom unmaintained CSS.
-- **State Management**: Uses `Zustand`. Data is isolated into domain stores:
-  - `authStore.js` (JWT & User Session)
-  - `cartStore.js` (Cart states, syncs via Redis backed APIs)
-  - `restaurantStore.js`, `orderStore.js`, `walletStore.js`, `addressStore.js`
-- **Component Routing Structure**:
-  - `HomePage.jsx` (Discovery / AI Prompts)
-  - `SearchPage.jsx` & `RestaurantDetailPage.jsx` (Menu exploration)
-  - `CheckoutPage.jsx` (SAGA trigger endpoint)
-  - `OrderTrackingPage.jsx` (WebSocket Map integration)
-  - `WalletPage.jsx` (Top-up logic)
+FoodRush ships with a **fully provisioned** monitoring stack. No manual setup required — dashboards auto-load on container start.
+
+### What's monitored
+
+Every Spring Boot service exposes `/actuator/prometheus`. Prometheus scrapes all 7 services every **5 seconds**. Grafana visualizes:
+
+| Metric | Description |
+|---|---|
+| **Uptime / Start Time** | How long each service has been running |
+| **JVM Heap & Non-Heap** | Memory pressure per service |
+| **CPU Usage** | System + process CPU over time |
+| **Load Average** | Host load (1m, 5m, 15m) |
+| **Process Open Files** | File descriptor usage |
+| **HikariCP Pool** | Database connection pool health |
+| **JVM Thread Count** | Live, daemon, peak threads |
+| **GC Activity** | Garbage collection pause times |
+
+### Access
+
+| Tool | URL | Credentials |
+|---|---|---|
+| Prometheus | http://localhost:9090 | — |
+| Grafana | http://localhost:3001 | admin / admin |
+
+### Architecture
+
+```mermaid
+graph LR
+    subgraph Spring Boot Services
+        A[api-gateway :8080]
+        B[user-service :8081]
+        C[restaurant-service :8082]
+        D[order-service :8083]
+        E[delivery-service :8084]
+        F[payment-service :8085]
+        G[notification-service :8086]
+    end
+
+    A & B & C & D & E & F & G -->|/actuator/prometheus\nevery 5s| P(Prometheus :9090)
+    P -->|PromQL queries| GR(Grafana :3001)
+    GR -->|Spring Boot 2.1\nSystem Monitor Dashboard| DEV[Developer]
+```
+
+### Provisioning (auto-loaded)
+
+The Grafana dashboard and Prometheus datasource are provisioned automatically via Docker volumes:
+
+```
+grafana/
+└── provisioning/
+    ├── datasources/
+    │   └── prometheus.yml       ← Prometheus datasource config
+    └── dashboards/
+        ├── dashboard.yml        ← Dashboard provider config
+        └── spring-boot-dashboard.json  ← Spring Boot System Monitor
+```
+
+No manual import needed — just run `docker compose up` and navigate to http://localhost:3001.
 
 ---
 
-## 🔌 6. Comprehensive API Endpoints Registry
+## Frontend Architecture
 
-Access all APIs over `http://localhost:8080/api/v1/...` passing `Authorization: Bearer <token>`.
+Built with **React 18 + Vite** for maximum performance and developer velocity.
 
-| Domain | Method | Endpoint Path | System Action / Description |
+- **Styling**: TailwindCSS v4 — zero custom CSS files
+- **State**: Zustand domain stores
+  - `authStore.js` — JWT session & user context
+  - `cartStore.js` — Cart state, Redis-backed sync
+  - `restaurantStore.js` — Menu & restaurant discovery
+  - `orderStore.js` — Order lifecycle & WebSocket updates
+  - `walletStore.js` — Balance & transactions
+  - `addressStore.js` — Geocoded delivery addresses
+- **Key Pages**:
+  - `HomePage.jsx` — Discovery & AI meal suggestions
+  - `RestaurantDetailPage.jsx` — Menu exploration
+  - `CheckoutPage.jsx` — SAGA payment trigger
+  - `OrderTrackingPage.jsx` — Live driver map via WebSocket
+  - `WalletPage.jsx` — Top-up and transaction history
+
+---
+
+## API Reference
+
+All APIs are accessed via `http://localhost:8080/api/v1/...` with `Authorization: Bearer <token>`.
+
+| Domain | Method | Endpoint | Description |
 |---|---|---|---|
-| **Identity** | POST | `/auth/register` | Open route to register. Generates OTP. |
-| | POST | `/auth/verify-otp` | Enables account. |
-| | POST | `/auth/login` | Authenticates User/Driver and yields JWT. |
-| **Profile**| GET | `/users/profile` | Yields current decoded user metadata. |
-| | PUT | `/users/profile` | Update profile information. |
-| | GET/POST | `/users/addresses` | Fetch or define geocoded physical addresses. |
-| **Restaurant**| POST | `/restaurants` | Merchant app registration. |
-| | GET | `/restaurants/nearby` | Geospatial lookup of restaurants < 5KM. |
-| | GET | `/restaurants/{id}` | Read public storefront info. |
-| | PATCH | `/restaurants/{id}/toggle`| Force manual close overrides. |
-| **Menu**| GET | `/restaurants/{id}/menu/all`| Retrieves all mapped `MenuItem`s. |
-| | POST/PUT | `/restaurants/{id}/menu/items`| Admin catalog modification. |
-| **Cart** | POST | `/cart/add` | Commits changes to the Redis Session tier. |
-| | DELETE | `/cart/remove/{id}` | Removes single cart item. |
-| | GET | `/cart` | Fetches active cart payload. |
-| **Order**| POST | `/orders/place` | **Initiates Financial SAGA**. |
-| | GET | `/orders/{orderId}` | Poll for status. |
-| | PATCH | `/orders/{id}/status` | Admin override order statuses. |
-| | POST | `/restaurants/{id}/accept-order/{orderId}`| Sent by Restaurant CLI when cooking starts.|
-| **Driver** | POST | `/driver/register` | Gig worker onboarding. |
-| | POST | `/driver/go-online` | Tags driver as eligible for dispatch queue. |
-| | POST | `/driver/location` | High-frequency GPS pump. Sent every 2s. |
-| **Delivery**| GET | `/delivery/driver/active` | Fetch matched orders for standard dispatch. |
-| | POST | `/delivery/pickup` | Scans package in-hand. |
-| | POST | `/delivery/complete` | Proof of delivery, drops FundLock into wallet. |
-| **Wallet** | POST | `/wallet/add-funds` | Top-ups user internal wallet balance. |
-| | GET | `/wallet/balance` | Fetches integer precision balance. |
-| | GET | `/transactions` | Paginated payment ledger history. |
+| **Auth** | POST | `/auth/register` | Register new user, triggers OTP |
+| | POST | `/auth/verify-otp` | Verify OTP to activate account |
+| | POST | `/auth/login` | Returns JWT token |
+| **User** | GET | `/users/profile` | Get current user profile |
+| | PUT | `/users/profile` | Update profile |
+| | GET/POST | `/users/addresses` | Manage delivery addresses |
+| **Restaurant** | POST | `/restaurants` | Register restaurant |
+| | GET | `/restaurants/nearby` | Geospatial search within 5km |
+| | GET | `/restaurants/{id}` | Get restaurant details |
+| | PATCH | `/restaurants/{id}/toggle` | Open/close restaurant |
+| **Menu** | GET | `/restaurants/{id}/menu/all` | Get full menu |
+| | POST/PUT | `/restaurants/{id}/menu/items` | Add/update menu items |
+| **Cart** | POST | `/cart/add` | Add item to Redis cart |
+| | DELETE | `/cart/remove/{id}` | Remove item |
+| | GET | `/cart` | Get current cart |
+| **Orders** | POST | `/orders/place` | **Trigger payment SAGA** |
+| | GET | `/orders/{orderId}` | Get order status |
+| | PATCH | `/orders/{id}/status` | Admin status override |
+| **Driver** | POST | `/driver/register` | Driver onboarding |
+| | POST | `/driver/go-online` | Mark driver available |
+| | POST | `/driver/location` | Push GPS coordinate (every 2s) |
+| **Delivery** | GET | `/delivery/driver/active` | Get assigned orders |
+| | POST | `/delivery/pickup` | Confirm package picked up |
+| | POST | `/delivery/complete` | Complete delivery, release funds |
+| **Wallet** | POST | `/wallet/add-funds` | Top up wallet |
+| | GET | `/wallet/balance` | Get current balance |
+| | GET | `/transactions` | Paginated transaction history |
 
 ---
 
-## 📨 7. Kafka Message Topography
+## Kafka Topics
 
-| Topic Identifier | Producer | Consumer | Data Payload Sent |
+| Topic | Producer | Consumers | Payload |
 |---|---|---|---|
-| `order-placed` | Order-Service | Payment, Notification | `{orderId, totalAmount, userId}` |
-| `payment-completed`| Payment-Service | Order, Rest., Notification| `{orderId, walletTxnId}` |
-| `payment-failed` | Payment-Service | Order, Notification | `{orderId, reason}` |
-| `order-accepted` | Rest-Service | Order, Notification | `{orderId, estimatedPrepTime}` |
-| `order-cancelled` | Any Service | Payment, Delivery, Notif | `{orderId, cancelledByRoleId}`|
-| `driver-assigned` | Delivery-Service | Order, Notification | `{orderId, driverId, driverName}` |
-| `delivery-picked-up`| Delivery-Service | Order, Notification | `{orderId}` |
-| `delivery-completed`| Delivery-Service | Payment, Order | `{orderId, tipAmount}` |
+| `order-placed` | Order Service | Payment, Notification | `{orderId, totalAmount, userId}` |
+| `payment-completed` | Payment Service | Order, Restaurant, Notification | `{orderId, walletTxnId}` |
+| `payment-failed` | Payment Service | Order, Notification | `{orderId, reason}` |
+| `order-accepted` | Restaurant Service | Order, Notification | `{orderId, estimatedPrepTime}` |
+| `order-cancelled` | Any Service | Payment, Delivery, Notification | `{orderId, cancelledBy}` |
+| `driver-assigned` | Delivery Service | Order, Notification | `{orderId, driverId, driverName}` |
+| `delivery-picked-up` | Delivery Service | Order, Notification | `{orderId}` |
+| `delivery-completed` | Delivery Service | Payment, Order | `{orderId, tipAmount}` |
 
 ---
 
-## 🚀 8. Definitive Developer Setup Guide
+## Security Model
 
-Booting the entire distributed system locally requires specific strict sequences due to internal dependency checks (Eureka + Config Server).
+1. **Zero Direct Access** — Ports 8081–8086 are internal only. All traffic flows through the API Gateway on `:8080`.
+2. **Stateless JWT** — Tokens are validated at the gateway and forwarded downstream as `X-User-Id` headers. No DB lookup per request.
+3. **Pessimistic DB Locks** — All wallet mutations use SQL-level pessimistic locks to prevent double-spend race conditions.
+4. **Redis Lua Rate Limiting** — Atomic scripts enforce per-IP request quotas at the gateway, preventing abuse before it hits any service.
 
-### 🛠️ Prerequisites
-- **Java 21**
-- **Node.js 18+**
-- **Docker Compose**
+---
 
-### Step 1. Clone & Configuration
+## Quick Start — Docker (Recommended)
+
+> ✅ **This is the easiest way to run FoodRush.** One command starts everything — all 7 Spring Boot services, Kafka, MySQL, Redis, Prometheus, and Grafana. No Java or Node.js installation needed.
+
+### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+
+---
+
+### Step 1 — Clone & Configure
+
 ```bash
-git clone https://github.com/<your-username>/foodRush.git
+git clone https://github.com/shrey200634/foodRush.git
 cd foodRush
+```
 
-# Duplicate env file
+Copy the example environment file:
+```bash
+# Mac/Linux
 cp .env.example .env
+
+# Windows PowerShell
+Copy-Item .env.example .env
 ```
-Inside `.env`, define your MySQL root variables, a secure `JWT_SECRET` (must be long), and `MAIL_PASSWORD` (App-password from Google if testing email notifications).
 
-### Step 2. Fire Up the Base Infrastructure
-Start Zookeeper, Kafka, and Redis (Requires Docker).
-```bash
-docker-compose up -d
+Open `.env` and fill in these values:
+```env
+DB_PASSWORD=yourpassword
+JWT_SECRET=any-long-random-string-at-least-32-characters-long
+MAIL_USERNAME=your@gmail.com
+MAIL_PASSWORD=your-gmail-app-password
 ```
-*(Verify Kafka UI by visiting `http://localhost:8090`)*
 
-### Step 3. Spin up Backend Microservices
-Run these in separate terminal tabs in **EXACT** order. Wait for the port to bind before moving to the next.
+> 💡 **MAIL_PASSWORD** must be a [Gmail App Password](https://support.google.com/accounts/answer/185833), not your regular Gmail password. If you skip email features, you can leave these blank.
+
+---
+
+### Step 2 — Start the Entire Stack
 
 ```bash
-# 1. Configuration Hub (Must be first)
+docker compose up -d
+```
+
+Docker will automatically:
+- Pull all required images
+- Build your Spring Boot services from source
+- Start everything in the correct dependency order (MySQL → Kafka → Config → Discovery → Services → Gateway)
+
+⏳ **First run takes 3–5 minutes** (downloading images + building JARs). Subsequent starts are much faster.
+
+---
+
+### Step 3 — Check Everything is Running
+
+```bash
+docker compose ps
+```
+
+All containers should show `running`. Then open these URLs:
+
+| Service | URL | Notes |
+|---|---|---|
+| 🌐 Frontend | http://localhost:3000 | Main app UI |
+| 🔀 API Gateway | http://localhost:8080 | All API calls go here |
+| 🔍 Eureka Dashboard | http://localhost:8761 | See all registered services |
+| 📨 Kafka UI | http://localhost:8090 | Browse Kafka topics & messages |
+| 📈 Prometheus | http://localhost:9090 | Raw metrics explorer |
+| 📊 Grafana | http://localhost:3001 | Dashboards — login: `admin` / `admin` |
+
+---
+
+### Step 4 — Seed the Database
+
+Load test data (restaurants, users, menu items):
+
+```bash
+# Mac/Linux
+mysql -h 127.0.0.1 -P 3307 -u root -p < phase2-seed.sql
+
+# Windows PowerShell
+Get-Content phase2-seed.sql | docker exec -i mysql mysql -u root -prootpassword
+```
+
+---
+
+### Step 5 — Stop Everything
+
+```bash
+docker compose down
+```
+
+To also delete all data (MySQL, Redis volumes):
+```bash
+docker compose down -v
+```
+
+---
+
+### Troubleshooting
+
+**Services not starting?**
+```bash
+# Check logs for a specific service
+docker compose logs user-service --tail=50
+
+# Restart a single service
+docker compose restart user-service
+```
+
+**Port already in use?**
+Make sure nothing else is running on ports: `3000`, `3001`, `3307`, `6379`, `8080`, `8090`, `8761`, `8888`, `9090`, `9092`
+
+**Out of memory?**
+In Docker Desktop → Settings → Resources → increase Memory to at least **6GB** (recommended 8GB for the full stack)
+
+---
+
+
+## Manual Setup — Local Dev
+
+Use this if you want to run services outside Docker for faster iteration.
+
+### Prerequisites
+
+- Java 21
+- Node.js 18+
+- Docker (for infrastructure only)
+
+### Step 1 — Start Infrastructure
+
+```bash
+docker compose up -d mysql redis zookeeper kafka kafka-ui prometheus grafana
+```
+
+### Step 2 — Start Services (in order)
+
+```bash
+# Terminal 1 — Config first
 cd Backened/config-server && ./gradlew bootRun
 
-# 2. Service Discovery Mesh (Wait for config server)
+# Terminal 2 — Discovery second
 cd Backened/discovery-server && ./gradlew bootRun
 
-# 3. Core Domains (These can boot at the same time)
+# Terminals 3-8 — Core services (can run in parallel)
 cd Backened/user-service        && ./gradlew bootRun
 cd Backened/restaurant-service  && ./gradlew bootRun
 cd Backened/order-service       && ./gradlew bootRun
@@ -314,27 +534,48 @@ cd Backened/delivery-service    && ./gradlew bootRun
 cd Backened/payment-service     && ./gradlew bootRun
 cd Backened/notification-service && ./gradlew bootRun
 
-# 4. API Gateway (Must be LAST so routing paths to Eureka targets are valid)
+# Terminal 9 — Gateway last
 cd Backened/api-gateway && ./gradlew bootRun
 ```
 
-### Step 4. Database Seeding (Phase 2)
-The database structure is dynamically created by Hibernate during boot. To inject test users and restaurants:
-```bash
-mysql -u root -p < phase2-seed.sql
-```
+### Step 3 — Frontend
 
-### Step 5. Frontend UI
 ```bash
-cd Frontend
+cd frontend
 npm install
 npm run dev
 ```
-Navigate to [http://localhost:5173](http://localhost:5173).
+
+Open http://localhost:5173
 
 ---
 
-## 🔒 9. Security Principles
-1. **Network Zero-Trust**: Direct web access to ports `8081-8086` is disallowed in production. The API Gateway `:8080` mediates all traffic.
-2. **Stateless JWT**: Authentication creates completely stateless JWTs. No database check implies highly performant horizontal scaling. Token is parsed by API Gateway and forwarded downstream as `X-User-Id` headers.
-3. **Pessimistic DB Locks**: Money moving between Users, Drivers, and App Revenue is locked at the SQL tier during mutations to definitively prevent duplicate charge errors.
+## Project Structure
+
+```
+foodRush/
+├── Backened/
+│   ├── api-gateway/
+│   ├── config-server/
+│   │   └── src/main/resources/configurations/   ← Per-service YAMLs
+│   ├── delivery-service/
+│   ├── discovery-server/
+│   ├── notification-service/
+│   ├── order-service/
+│   ├── payment-service/
+│   ├── restaurant-service/
+│   └── user-service/
+├── frontend/                                     ← React 18 + Vite
+├── grafana/
+│   └── provisioning/
+│       ├── dashboards/                           ← Auto-provisioned dashboard
+│       └── datasources/                          ← Prometheus datasource
+├── prometheus.yml                                ← Scrape config for all services
+├── docker-compose.yml
+├── phase2-seed.sql
+└── .env.example
+```
+
+---
+
+<p align="center">Built with ☕ Java, 🐘 Kafka, and way too many microservices.</p>
